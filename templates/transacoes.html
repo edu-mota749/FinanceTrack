@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceTrack | Transações</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="page-shell dashboard-shell">
+        <aside class="sidebar">
+            <div class="sidebar-brand sidebar-brand-only-logo">
+                <img src="{{ url_for('static', filename='img/Logo_Branca.png') }}" alt="Logo FinanceTrack" class="sidebar-logo">
+            </div>
+            <nav class="sidebar-nav">
+                <a class="nav-item" href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a class="nav-item active" href="{{ url_for('transacoes') }}">Transações</a>
+                <a class="nav-item" href="#">Relatórios</a>
+                <a class="nav-item" href="#">Configurações</a>
+                <a class="nav-item logout" href="{{ url_for('logout') }}">Sair</a>
+            </nav>
+        </aside>
+
+        <main class="dashboard-main">
+            <header class="dashboard-header">
+                <div>Olá, <strong>{{ user_name }}</strong></div>
+            </header>
+
+            <section class="filter-card">
+                <div class="card-title">FILTROS</div>
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label>Intervalo de Datas</label>
+                        <div class="date-buttons">
+                            <button type="button" class="pill-button active">Mês Atual</button>
+                            <button type="button" class="pill-button">Últimos 30 Dias</button>
+                            <button type="button" class="pill-button">Personalizado</button>
+                        </div>
+                        <div class="filter-row">
+                            <label>
+                                <span>De</span>
+                                <input class="small-input" type="date" value="2025-10-01">
+                            </label>
+                            <label>
+                                <span>Até</span>
+                                <input class="small-input" type="date" value="2025-10-30">
+                            </label>
+                        </div>
+                        <label>Intervalo de Valores</label>
+                        <div class="filter-row">
+                            <input class="small-input" type="text" placeholder="MÍNIMO: R$0,00">
+                            <input class="small-input" type="text" placeholder="MÁXIMO: R$0,00">
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Categoria(s)</label>
+                        <select class="small-input">
+                            <option>Selecione</option>
+                            <option>Moradia</option>
+                            <option>Alimentação</option>
+                            <option>Transporte</option>
+                            <option>Lazer</option>
+                        </select>
+                        <label>Tipo de Transação</label>
+                        <div class="text-subtle">Escolha entre receitas, despesas ou todos</div>
+                        <div class="radio-row">
+                            <label class="radio-option">
+                                <input type="radio" name="tipo" checked>
+                                Receitas
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="tipo">
+                                Despesas
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="tipo">
+                                Todos
+                            </label>
+                        </div>
+                        <div class="filter-actions">
+                            <button type="button" class="secondary-button">Remover Filtros</button>
+                            <button type="button" class="add-transaction-button">Aplicar Filtros</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="transactions-section">
+                <div class="section-header">
+                    <h2>TRANSAÇÕES</h2>
+                </div>
+                <div class="table-card">
+                    <table class="table-highlight">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Categoria</th>
+                                <th>Valor</th>
+                                <th>Descrição</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>30/10/2025</td><td>Salário</td><td class="income">+ R$3.800,00</td><td>Pagamento Mensal</td></tr>
+                            <tr><td>28/10/2025</td><td>Lazer</td><td class="expense">- R$120,00</td><td>Cinema e Lanche</td></tr>
+                            <tr><td>27/10/2025</td><td>Alimentação</td><td class="expense">- R$325,50</td><td>Supermercado</td></tr>
+                            <tr><td>25/10/2025</td><td>Transporte</td><td class="expense">- R$48,00</td><td>Abastecimento</td></tr>
+                            <tr><td>22/10/2025</td><td>Saúde</td><td class="expense">- R$90,00</td><td>Farmácia</td></tr>
+                            <tr><td>20/10/2025</td><td>Serviços</td><td class="expense">- R$150,00</td><td>Assinaturas de Apps</td></tr>
+                            <tr><td>18/10/2025</td><td>Moradia</td><td class="expense">- R$400,00</td><td>Energia + Água</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 22px; display: flex; justify-content: flex-end;">
+                    <button class="add-transaction-button">+ Adicionar</button>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

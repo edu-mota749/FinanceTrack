@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceTrack | Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="page-shell auth-shell">
+        <div class="auth-panel">
+            <div class="brand-block auth-brand-block">
+                <div class="brand-logo auth-logo-center">
+                    <img src="{{ url_for('static', filename='img/Logo_Azul.png') }}" alt="Logo FinanceTrack" class="brand-image">
+                </div>
+                <div class="brand-copy">
+                    <h1>Bem-Vindo!</h1>
+                    <p>Acesse ou crie sua conta</p>
+                </div>
+            </div>
+            <div class="auth-form-card">
+                <div class="auth-tabs">
+                    <button type="button" class="tab-button" data-target="login">Entrar</button>
+                    <button type="button" class="tab-button" data-target="register">Cadastrar</button>
+                </div>
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                <div class="form-section" id="login-section">
+                    <h2>Organize Suas Finanças</h2>
+                    <form action="{{ url_for('auth') }}?tab=login" method="post">
+                        <input type="hidden" name="action" value="login">
+                        <label>
+                            <span>E-MAIL</span>
+                            <input type="email" name="email" placeholder="E-mail">
+                        </label>
+                        <label>
+                            <span>SENHA</span>
+                            <input type="password" name="password" placeholder="Senha">
+                        </label>
+                        <button class="primary-button">Entrar</button>
+                    </form>
+                </div>
+
+                <div class="form-section" id="register-section">
+                    <h2>Organize Suas Finanças</h2>
+                    <form action="{{ url_for('auth') }}?tab=register" method="post">
+                        <input type="hidden" name="action" value="register">
+                        <label>
+                            <span>NOME</span>
+                            <input type="text" name="name" placeholder="Nome">
+                        </label>
+                        <label>
+                            <span>E-MAIL</span>
+                            <input type="email" name="email" placeholder="E-mail">
+                        </label>
+                        <label>
+                            <span>SENHA</span>
+                            <input type="password" name="password" placeholder="Senha">
+                        </label>
+                        <button class="primary-button">Criar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const activeTab = "{{ active_tab }}";
+        const selectedTab = activeTab === "register" ? "register" : "login";
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

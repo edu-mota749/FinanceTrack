@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceTrack | Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="page-shell dashboard-shell">
+        <aside class="sidebar">
+            <div class="sidebar-brand sidebar-brand-only-logo">
+                <img src="{{ url_for('static', filename='img/Logo_Branca.png') }}" alt="Logo FinanceTrack" class="sidebar-logo">
+            </div>
+            <nav class="sidebar-nav">
+                <a class="nav-item active" href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a class="nav-item" href="{{ url_for('transacoes') }}">Transações</a>
+                <a class="nav-item" href="#">Relatórios</a>
+                <a class="nav-item" href="#">Configurações</a>
+                <a class="nav-item logout" href="{{ url_for('logout') }}">Sair</a>
+            </nav>
+        </aside>
+
+        <main class="dashboard-main">
+            <header class="dashboard-header">
+                <div>Olá, <strong>{{ user_name }}</strong></div>
+            </header>
+
+            <section class="kpi-row">
+                <article class="kpi-card">
+                    <span class="kpi-label">RECEITAS</span>
+                    <strong class="kpi-value income">R$ 7.500,00</strong>
+                </article>
+                <article class="kpi-card">
+                    <span class="kpi-label">DESPESAS</span>
+                    <strong class="kpi-value expense">R$ 4.942,50</strong>
+                </article>
+                <article class="kpi-card">
+                    <span class="kpi-label">SALDO</span>
+                    <strong class="kpi-value balance">R$ 2.557,50</strong>
+                </article>
+            </section>
+
+            <section class="dashboard-grid">
+                <article class="chart-card">
+                    <div class="card-title">FLUXO DE CAIXA MENSAL</div>
+                    <canvas id="lineChart"></canvas>
+                </article>
+                <article class="chart-card compact-card">
+                    <div class="card-title">GASTOS</div>
+                    <canvas id="donutChart"></canvas>
+                    <div class="legend-list">
+                        <span><strong>30%</strong> Moradia</span>
+                        <span><strong>25%</strong> Alimentação</span>
+                        <span><strong>10%</strong> Educação</span>
+                        <span><strong>10%</strong> Transporte</span>
+                        <span><strong>25%</strong> Outros</span>
+                    </div>
+                </article>
+            </section>
+
+            <section class="transactions-section">
+                <div class="section-header">
+                    <h2>ÚLTIMAS TRANSAÇÕES</h2>
+                </div>
+                <div class="table-card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Categoria</th>
+                                <th>Valor</th>
+                                <th>Descrição</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>30/10/2025</td><td>Salário</td><td class="income">+ R$3.800,00</td><td>Pagamento Mensal</td></tr>
+                            <tr><td>28/10/2025</td><td>Lazer</td><td class="expense">- R$120,00</td><td>Cinema e Lanche</td></tr>
+                            <tr><td>27/10/2025</td><td>Alimentação</td><td class="expense">- R$325,50</td><td>Supermercado</td></tr>
+                            <tr><td>25/10/2025</td><td>Transporte</td><td class="expense">- R$48,00</td><td>Abastecimento</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
