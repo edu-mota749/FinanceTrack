@@ -3,30 +3,39 @@ document.addEventListener("DOMContentLoaded", () => {
     const registerSection = document.getElementById("register-section");
     const tabButtons = document.querySelectorAll(".tab-button");
 
-    function setActiveTab(tab) {
+    if (loginSection && registerSection && tabButtons.length) {
+        function setActiveTab(tab) {
+            tabButtons.forEach((button) => {
+                button.classList.toggle("active", button.dataset.target === tab);
+            });
+            loginSection.classList.toggle("active", tab === "login");
+            registerSection.classList.toggle("active", tab === "register");
+        }
+
         tabButtons.forEach((button) => {
-            button.classList.toggle("active", button.dataset.target === tab);
+            button.addEventListener("click", () => setActiveTab(button.dataset.target));
         });
-        loginSection.classList.toggle("active", tab === "login");
-        registerSection.classList.toggle("active", tab === "register");
+
+        setActiveTab(window.selectedTab || "login");
     }
-
-    tabButtons.forEach((button) => {
-        button.addEventListener("click", () => setActiveTab(button.dataset.target));
-    });
-
-    setActiveTab(window.selectedTab || "login");
 
     if (document.getElementById("lineChart")) {
         const lineCtx = document.getElementById("lineChart").getContext("2d");
+        const data = window.dashboardChartData || {
+            labels: ["01", "05", "10", "15", "20", "25", "30"],
+            incomes: [900, 2500, 3400, 4200, 5300, 6700, 7400],
+            expenses: [300, 1200, 2700, 3500, 4300, 5100, 4980],
+            balances: [600, 1300, 1300, 1300, 1000, 1600, 2440],
+        };
+
         new Chart(lineCtx, {
             type: "line",
             data: {
-                labels: ["01", "05", "10", "15", "20", "25", "30"],
+                labels: data.labels,
                 datasets: [
                     {
                         label: "Receitas",
-                        data: [900, 2500, 3400, 4200, 5300, 6700, 7400],
+                        data: data.incomes,
                         borderColor: "#1c9a41",
                         backgroundColor: "rgba(28, 154, 65, 0.08)",
                         fill: true,
@@ -35,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     },
                     {
                         label: "Despesas",
-                        data: [300, 1200, 2700, 3500, 4300, 5100, 4980],
+                        data: data.expenses,
                         borderColor: "#d63447",
                         backgroundColor: "rgba(214, 52, 71, 0.08)",
                         fill: true,
@@ -44,7 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     },
                     {
                         label: "Saldo Acumulado",
-                        data: [600, 1300, 1300, 1300, 1000, 1600, 2440],
+                        data: data.balances,
                         borderColor: "#fb923c",
                         borderDash: [8, 6],
                         backgroundColor: "rgba(251, 146, 60, 0.08)",
@@ -69,12 +78,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (document.getElementById("donutChart")) {
         const donutCtx = document.getElementById("donutChart").getContext("2d");
+        const data = window.dashboardChartData || {
+            category_labels: ["Moradia", "Alimentação", "Educação", "Transporte", "Outros"],
+            category_values: [30, 25, 10, 10, 25],
+        };
+
         new Chart(donutCtx, {
             type: "doughnut",
             data: {
-                labels: ["Moradia", "Alimentação", "Educação", "Transporte", "Outros"],
+                labels: data.category_labels,
                 datasets: [{
-                    data: [30, 25, 10, 10, 25],
+                    data: data.category_values,
                     backgroundColor: ["#1d4ed8", "#f59e0b", "#ef4444", "#2dd4bf", "#16a34a"],
                     borderWidth: 0,
                 }],

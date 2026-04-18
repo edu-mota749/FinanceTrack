@@ -28,63 +28,65 @@
 
             <section class="filter-card">
                 <div class="card-title">FILTROS</div>
-                <div class="filter-grid">
-                    <div class="filter-group">
-                        <label>Intervalo de Datas</label>
-                        <div class="date-buttons">
-                            <button type="button" class="pill-button active">Mês Atual</button>
-                            <button type="button" class="pill-button">Últimos 30 Dias</button>
-                            <button type="button" class="pill-button">Personalizado</button>
+                <form action="{{ url_for('transacoes') }}" method="get">
+                    <div class="filter-grid">
+                        <div class="filter-group">
+                            <label>Intervalo de Datas</label>
+                            <div class="date-buttons">
+                                <button type="button" class="pill-button" onclick="setDateRange('month')">Mês Atual</button>
+                                <button type="button" class="pill-button" onclick="setDateRange('30')">Últimos 30 Dias</button>
+                                <button type="button" class="pill-button" onclick="setDateRange('custom')">Personalizado</button>
+                            </div>
+                            <div class="filter-row">
+                                <label>
+                                    <span>De</span>
+                                    <input class="small-input" type="date" name="start_date" value="{{ filters.start_date }}">
+                                </label>
+                                <label>
+                                    <span>Até</span>
+                                    <input class="small-input" type="date" name="end_date" value="{{ filters.end_date }}">
+                                </label>
+                            </div>
+                            <label>Intervalo de Valores</label>
+                            <div class="filter-row">
+                                <input class="small-input" type="text" name="min_value" placeholder="MÍNIMO: R$0,00" value="{{ filters.min_value if filters.min_value is defined else '' }}">
+                                <input class="small-input" type="text" name="max_value" placeholder="MÁXIMO: R$0,00" value="{{ filters.max_value if filters.max_value is defined else '' }}">
+                            </div>
                         </div>
-                        <div class="filter-row">
-                            <label>
-                                <span>De</span>
-                                <input class="small-input" type="date" value="2025-10-01">
-                            </label>
-                            <label>
-                                <span>Até</span>
-                                <input class="small-input" type="date" value="2025-10-30">
-                            </label>
-                        </div>
-                        <label>Intervalo de Valores</label>
-                        <div class="filter-row">
-                            <input class="small-input" type="text" placeholder="MÍNIMO: R$0,00">
-                            <input class="small-input" type="text" placeholder="MÁXIMO: R$0,00">
-                        </div>
-                    </div>
 
-                    <div class="filter-group">
-                        <label>Categoria(s)</label>
-                        <select class="small-input">
-                            <option>Selecione</option>
-                            <option>Moradia</option>
-                            <option>Alimentação</option>
-                            <option>Transporte</option>
-                            <option>Lazer</option>
-                        </select>
-                        <label>Tipo de Transação</label>
-                        <div class="text-subtle">Escolha entre receitas, despesas ou todos</div>
-                        <div class="radio-row">
-                            <label class="radio-option">
-                                <input type="radio" name="tipo" checked>
-                                Receitas
-                            </label>
-                            <label class="radio-option">
-                                <input type="radio" name="tipo">
-                                Despesas
-                            </label>
-                            <label class="radio-option">
-                                <input type="radio" name="tipo">
-                                Todos
-                            </label>
-                        </div>
-                        <div class="filter-actions">
-                            <button type="button" class="secondary-button">Remover Filtros</button>
-                            <button type="button" class="add-transaction-button">Aplicar Filtros</button>
+                        <div class="filter-group">
+                            <label>Categoria(s)</label>
+                            <select class="small-input" name="category_id">
+                                <option value="">Selecione</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}" {% if filters.category_id == category.id|string %}selected{% endif %}>{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <label>Tipo de Transação</label>
+                            <div class="text-subtle">Escolha entre receitas, despesas ou todos</div>
+                            <div class="radio-row">
+                                <label class="radio-option">
+                                    <input type="radio" name="tipo" value="income" {% if filters.tipo == 'income' %}checked{% endif %}>
+                                    Receitas
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="tipo" value="expense" {% if filters.tipo == 'expense' %}checked{% endif %}>
+                                    Despesas
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="tipo" value="all" {% if filters.tipo == 'all' %}checked{% endif %}>
+                                    Todos
+                                </label>
+                            </div>
+                            <div class="filter-actions">
+                                <button type="submit" class="secondary-button">Remover Filtros</button>
+                                <button type="submit" class="add-transaction-button">Aplicar Filtros</button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </form>
             </section>
+
 
             <section class="transactions-section">
                 <div class="section-header">
@@ -101,21 +103,105 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td>30/10/2025</td><td>Salário</td><td class="income">+ R$3.800,00</td><td>Pagamento Mensal</td></tr>
-                            <tr><td>28/10/2025</td><td>Lazer</td><td class="expense">- R$120,00</td><td>Cinema e Lanche</td></tr>
-                            <tr><td>27/10/2025</td><td>Alimentação</td><td class="expense">- R$325,50</td><td>Supermercado</td></tr>
-                            <tr><td>25/10/2025</td><td>Transporte</td><td class="expense">- R$48,00</td><td>Abastecimento</td></tr>
-                            <tr><td>22/10/2025</td><td>Saúde</td><td class="expense">- R$90,00</td><td>Farmácia</td></tr>
-                            <tr><td>20/10/2025</td><td>Serviços</td><td class="expense">- R$150,00</td><td>Assinaturas de Apps</td></tr>
-                            <tr><td>18/10/2025</td><td>Moradia</td><td class="expense">- R$400,00</td><td>Energia + Água</td></tr>
+                            {% if transactions %}
+                                {% for tx in transactions %}
+                                <tr>
+                                    <td>{{ tx.date.strftime('%d/%m/%Y') }}</td>
+                                    <td>{{ tx.category.name }}</td>
+                                    <td class="{{ 'income' if tx.type == 'income' else 'expense' }}">
+                                        {{ '+' if tx.type == 'income' else '-' }} R$ {{ '{:.2f}'.format(tx.amount).replace('.', ',') }}
+                                    </td>
+                                    <td>{{ tx.description }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" style="text-align:center; padding: 24px; color: #6c7a99;">Nenhuma transação encontrada.</td>
+                                </tr>
+                            {% endif %}
                         </tbody>
                     </table>
                 </div>
                 <div style="margin-top: 22px; display: flex; justify-content: flex-end;">
-                    <button class="add-transaction-button">+ Adicionar</button>
+                    <button type="button" class="add-transaction-button" onclick="openModal()">+ Adicionar</button>
                 </div>
             </section>
         </main>
     </div>
+
+    <div class="modal-backdrop hidden" id="transactionModal">
+        <div class="modal-card">
+            <button type="button" class="modal-close" onclick="closeModal()">×</button>
+            <h2 class="modal-title">ADICIONAR TRANSAÇÃO</h2>
+            <form action="{{ url_for('adicionar_transacao') }}" method="post" class="modal-form">
+                <label class="modal-label">Data:</label>
+                <input class="modal-input" type="date" name="date" required>
+
+                <label class="modal-label">Categoria:</label>
+                <select class="modal-input" name="category_id" required>
+                    <option value="">Selecione</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <label class="modal-label">Valor:</label>
+                <input class="modal-input" type="text" name="amount" placeholder="R$" required>
+
+                <label class="modal-label">Descrição:</label>
+                <input class="modal-input" type="text" name="description" placeholder="Descrição da transação">
+
+                <label class="modal-label">Tipo:</label>
+                <div class="radio-row modal-radio-row">
+                    <label class="radio-option">
+                        <input type="radio" name="tipo" value="income" checked>
+                        Receita
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="tipo" value="expense">
+                        Despesa
+                    </label>
+                </div>
+
+                <button type="submit" class="add-transaction-button modal-submit">Confirmar</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function setDateRange(range) {
+            const today = new Date();
+            const start = document.querySelector("input[name='start_date']");
+            const end = document.querySelector("input[name='end_date']");
+            if (range === 'month') {
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                start.value = firstDay.toISOString().slice(0, 10);
+                end.value = today.toISOString().slice(0, 10);
+            }
+            if (range === '30') {
+                const past = new Date(today);
+                past.setDate(today.getDate() - 30);
+                start.value = past.toISOString().slice(0, 10);
+                end.value = today.toISOString().slice(0, 10);
+            }
+            if (range === 'custom') {
+                start.focus();
+            }
+        }
+
+        function openModal() {
+            document.getElementById('transactionModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('transactionModal').classList.add('hidden');
+        }
+
+        document.getElementById('transactionModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeModal();
+            }
+        });
+    </script>
 </body>
 </html>
