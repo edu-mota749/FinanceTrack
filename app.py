@@ -2,11 +2,13 @@ import io
 import calendar
 import os
 from datetime import date, datetime, timedelta
+from functools import wraps
 from urllib.parse import quote_plus
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from fpdf import FPDF
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 
@@ -31,6 +33,15 @@ def get_default_user():
     if user is None:
         user = User(name="Usuário Demo", email="demo@financetrack.local")
         db.session.add(user)
+        db.session.commit()
+        
+        # Criar autenticação padrão
+        auth = Autenticacao(
+            usuario_id=user.id,
+            email="demo@financetrack.local",
+            senha_hash=generate_password_hash("password123")
+        )
+        db.session.add(auth)
         db.session.commit()
     return user
 
@@ -77,6 +88,18 @@ class Relatorio(db.Model):
     criado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     usuario = db.relationship("User", backref="relatorios")
+
+
+class Autenticacao(db.Model):
+    __tablename__ = "autenticacao"
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=False, unique=True)
+    email = db.Column(db.String(200), nullable=False, unique=True)
+    senha_hash = db.Column(db.String(255), nullable=False)
+    criado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    atualizado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    usuario = db.relationship("User", backref="autenticacao_rel")
 
 
 def format_periodo_por_extenso(data_obj):
@@ -201,17 +224,26 @@ def create_default_categories():
 
 def get_current_user():
     if "user_id" not in session:
-        user = get_default_user()
-        session["user_id"] = user.id
-        session["user_name"] = user.name
-        return user
+        return None
 
     user = User.query.get(session["user_id"])
     if user is None:
-        user = get_default_user()
-        session["user_id"] = user.id
-        session["user_name"] = user.name
+        session.clear()
+        return None
     return user
+
+
+def login_required(view):
+    @wraps(view)
+    def wrapped_view(*args, **kwargs):
+        if "user_id" not in session:
+            return redirect(url_for("auth"))
+        user = User.query.get(session["user_id"])
+        if user is None:
+            session.clear()
+            return redirect(url_for("auth"))
+        return view(*args, **kwargs)
+    return wrapped_view
 
 
 def build_dashboard_data(user):
@@ -317,6 +349,7 @@ def build_transaction_query(user):
 
 
 @app.route("/transacoes/adicionar", methods=["POST"])
+@login_required
 def adicionar_transacao():
     user = get_current_user()
     category_id = request.form.get("category_id")
@@ -362,6 +395,7 @@ def adicionar_transacao():
 
 
 @app.route("/transacoes/editar/<int:transaction_id>", methods=["POST"])
+@login_required
 def editar_transacao(transaction_id):
     user = get_current_user()
     transaction = Transaction.query.filter_by(id=transaction_id, user_id=user.id).first()
@@ -408,6 +442,7 @@ def editar_transacao(transaction_id):
 
 
 @app.route("/transacoes/excluir/<int:transaction_id>", methods=["POST"])
+@login_required
 def excluir_transacao(transaction_id):
     user = get_current_user()
     transaction = Transaction.query.filter_by(id=transaction_id, user_id=user.id).first()
@@ -422,6 +457,7 @@ def excluir_transacao(transaction_id):
 
 
 @app.route("/relatorios")
+@login_required
 def relatorios():
     user = get_current_user()
     relatorios_gerados = get_monthly_report_cards(user)
@@ -434,6 +470,7 @@ def relatorios():
 
 
 @app.route("/relatorios/download/<int:relatorio_id>")
+@login_required
 def download_relatorio(relatorio_id):
     user = get_current_user()
     rel = Relatorio.query.filter_by(id=relatorio_id, usuario_id=user.id).first()
@@ -461,6 +498,7 @@ def download_relatorio(relatorio_id):
 
 
 @app.route("/relatorios/download/<int:year>/<int:month>")
+@login_required
 def download_relatorio_mes(year, month):
     user = get_current_user()
     try:
@@ -525,6 +563,7 @@ def download_relatorio_mes(year, month):
 
 
 @app.route("/relatorios/baixar", methods=["POST"])
+@login_required
 def baixar_relatorio():
     user = get_current_user()
     start_date = request.form.get("start_date")
@@ -609,13 +648,98 @@ def baixar_relatorio():
     )
 
 
+@app.route("/configuracoes", methods=["GET", "POST"])
+@login_required
+def configuracoes():
+    user = get_current_user()
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        
+        if action == "edit_profile":
+            new_name = request.form.get("name", "").strip()
+            if not new_name:
+                flash("O nome não pode ser vazio.", "error")
+                return redirect(url_for("configuracoes"))
+            
+            user.name = new_name
+            session["user_name"] = new_name
+            db.session.commit()
+            flash("Perfil atualizado com sucesso.", "success")
+            return redirect(url_for("configuracoes"))
+
+        if action == "change_password":
+            old_password = request.form.get("old_password", "").strip()
+            new_password = request.form.get("new_password", "").strip()
+            confirm_password = request.form.get("confirm_password", "").strip()
+
+            if not old_password or not new_password or not confirm_password:
+                flash("Preencha todos os campos para alterar a senha.", "error")
+                return redirect(url_for("configuracoes"))
+
+            auth = Autenticacao.query.filter_by(usuario_id=user.id).first()
+            if not auth or not check_password_hash(auth.senha_hash, old_password):
+                flash("Senha atual incorreta.", "error")
+                return redirect(url_for("configuracoes"))
+
+            if new_password != confirm_password:
+                flash("As novas senhas não coincidem.", "error")
+                return redirect(url_for("configuracoes"))
+
+            if len(new_password) < 6:
+                flash("A nova senha deve ter no mínimo 6 caracteres.", "error")
+                return redirect(url_for("configuracoes"))
+
+            auth.senha_hash = generate_password_hash(new_password)
+            db.session.commit()
+            flash("Senha alterada com sucesso.", "success")
+            return redirect(url_for("configuracoes"))
+
+        if action == "delete_account":
+            current_password = request.form.get("current_password", "").strip()
+            confirm_phrase = request.form.get("confirm_phrase", "").strip()
+
+            if not current_password or confirm_phrase != "EXCLUIR":
+                flash("Senha e confirmação são necessárias para excluir a conta.", "error")
+                return redirect(url_for("configuracoes"))
+
+            auth = Autenticacao.query.filter_by(usuario_id=user.id).first()
+            if not auth or not check_password_hash(auth.senha_hash, current_password):
+                flash("Senha atual incorreta.", "error")
+                return redirect(url_for("configuracoes"))
+
+            Transaction.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+            Relatorio.query.filter_by(usuario_id=user.id).delete(synchronize_session=False)
+            Autenticacao.query.filter_by(usuario_id=user.id).delete(synchronize_session=False)
+            User.query.filter_by(id=user.id).delete(synchronize_session=False)
+            db.session.commit()
+            session.clear()
+            flash("Sua conta foi excluída com sucesso.", "success")
+            return redirect(url_for("auth"))
+
+    auth = Autenticacao.query.filter_by(usuario_id=user.id).first()
+    email = auth.email if auth else user.email
+
+    return render_template(
+        "configuracoes.html",
+        user_name=user.name,
+        user=user,
+        email=email,
+    )
+
+
 @app.route("/")
 def home():
-    return redirect(url_for("dashboard"))
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("auth"))
 
 
 @app.route("/auth", methods=["GET", "POST"])
 def auth():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+
     active_tab = request.args.get("tab", "login")
 
     if request.method == "POST":
@@ -623,27 +747,53 @@ def auth():
         if action == "login":
             email = request.form.get("email", "").strip()
             password = request.form.get("password", "").strip()
+
             if not email or not password:
                 flash("Preencha e-mail e senha para entrar.", "error")
             else:
-                session["user_name"] = email.split("@")[0].title()
-                return redirect(url_for("dashboard"))
+                auth_record = Autenticacao.query.filter_by(email=email).first()
+                if auth_record is None or not check_password_hash(auth_record.senha_hash, password):
+                    flash("E-mail ou senha incorretos.", "error")
+                else:
+                    session["user_id"] = auth_record.usuario_id
+                    session["user_name"] = auth_record.usuario.name
+                    return redirect(url_for("dashboard"))
 
         if action == "register":
             name = request.form.get("name", "").strip()
             email = request.form.get("email", "").strip()
             password = request.form.get("password", "").strip()
+
             if not name or not email or not password:
                 flash("Preencha todos os campos para criar sua conta.", "error")
                 active_tab = "register"
             else:
-                session["user_name"] = name
-                return redirect(url_for("dashboard"))
+                if Autenticacao.query.filter_by(email=email).first() is not None or User.query.filter_by(email=email).first() is not None:
+                    flash("Este e-mail já está em uso.", "error")
+                    active_tab = "register"
+                else:
+                    user = User(name=name, email=email)
+                    db.session.add(user)
+                    db.session.flush()
+
+                    auth_record = Autenticacao(
+                        usuario_id=user.id,
+                        email=email,
+                        senha_hash=generate_password_hash(password),
+                    )
+                    db.session.add(auth_record)
+                    db.session.commit()
+
+                    session["user_id"] = user.id
+                    session["user_name"] = user.name
+                    flash("Conta criada com sucesso.", "success")
+                    return redirect(url_for("dashboard"))
 
     return render_template("auth.html", active_tab=active_tab)
 
 
 @app.route("/dashboard")
+@login_required
 def dashboard():
     user = get_current_user()
     dashboard_data = build_dashboard_data(user)
@@ -655,6 +805,7 @@ def dashboard():
 
 
 @app.route("/transacoes")
+@login_required
 def transacoes():
     user = get_current_user()
     categories = Category.query.order_by(Category.name).all()

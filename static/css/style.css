@@ -919,6 +919,332 @@ td.expense { color: #d63447; }
     }
 }
 
+/* Configuration Page Styles */
+.page-header {
+    padding: 0 0 24px 0;
+    margin-bottom: 28px;
+    border-bottom: 2px solid #e8eef6;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 32px;
+    color: #0f2148;
+    font-weight: 700;
+}
+
+.config-card {
+    background: #fff;
+    border-radius: 24px;
+    padding: 28px;
+    box-shadow: var(--shadow);
+    margin-bottom: 28px;
+    border: 1px solid #d7e1eb;
+}
+
+.config-card.danger {
+    border-color: #fde4e8;
+    background-color: #fef9fa;
+}
+
+.security-card .card-title {
+    margin-bottom: 20px;
+}
+
+.security-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.security-option {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 18px;
+    align-items: center;
+    padding: 22px;
+    border-radius: 20px;
+    border: 1px solid #e5eaf4;
+    background: #f8fbff;
+}
+
+.security-option h3 {
+    margin: 0 0 6px;
+    font-size: 18px;
+    color: #0f2148;
+}
+
+.security-option p {
+    margin: 0;
+    color: #6c7a99;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.security-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    font-size: 24px;
+}
+
+.security-icon-primary {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.security-icon-danger {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.security-button {
+    min-width: 145px;
+    padding: 12px 20px;
+}
+
+.danger-option {
+    border-color: #fbcaca;
+    background: #fff1f2;
+}
+
+@media (max-width: 960px) {
+    .security-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.card-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f2148;
+    margin-bottom: 24px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-group {
+    margin-bottom: 24px;
+    display: grid;
+    gap: 12px;
+}
+
+.form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f2148;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.form-input {
+    width: 100%;
+    padding: 16px 20px 16px 48px;
+    border: 1px solid #d7e1eb;
+    border-radius: 16px;
+    font-size: 16px;
+    color: #0f2148;
+    background: #fff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #19a1a9;
+    box-shadow: 0 0 0 3px rgba(25, 161, 169, 0.1);
+}
+
+.form-input.disabled-input {
+    background: #f5f7fc;
+    color: #8b97b1;
+    cursor: not-allowed;
+}
+
+.form-input.disabled-input:focus {
+    border-color: #d7e1eb;
+    box-shadow: none;
+}
+
+.input-icon {
+    position: absolute;
+    left: 16px;
+    pointer-events: none;
+}
+
+.form-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 28px;
+}
+
+.add-transaction-button,
+.secondary-button,
+.danger-button {
+    padding: 14px 24px;
+    border-radius: 16px;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.add-transaction-button {
+    background: #f59e0b;
+    color: #fff;
+}
+
+.add-transaction-button:hover {
+    background: #d97706;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(245, 158, 11, 0.2);
+}
+
+.secondary-button {
+    background: #e8eef6;
+    color: #0f2148;
+    border: 1px solid #d7e1eb;
+}
+
+.secondary-button:hover {
+    background: #d7e1eb;
+    transform: translateY(-2px);
+}
+
+.danger-button {
+    background: #d63447;
+    color: #fff;
+    width: 100%;
+}
+
+.danger-button:hover {
+    background: #b91e2b;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(214, 52, 71, 0.2);
+}
+
+.danger-text {
+    color: #6c7a99;
+    font-size: 14px;
+    margin-bottom: 16px;
+    line-height: 1.6;
+}
+
+.modal-form {
+    display: grid;
+    gap: 20px;
+}
+
+.modal-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 28px;
+}
+
+.flash-message {
+    padding: 16px 20px;
+    border-radius: 16px;
+    margin-bottom: 20px;
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.flash-message.success {
+    background: #dcf9e5;
+    color: #1c9a41;
+    border: 1px solid #a8e8c0;
+}
+
+.flash-message.error {
+    background: #fde4e8;
+    color: #d63447;
+    border: 1px solid #f5b8c3;
+}
+
+/* Modal Styles for Configuration Page */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(11, 32, 69, 0.55);
+    display: grid;
+    place-items: center;
+    z-index: 100;
+    padding: 24px;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    width: min(520px, 100%);
+    background: #fff;
+    border-radius: 28px;
+    padding: 32px;
+    box-shadow: 0 30px 80px rgba(15, 33, 72, 0.22);
+    position: relative;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e8eef6;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 22px;
+    color: #0f2148;
+    font-weight: 700;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #0f2148;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+
+.modal-close:hover {
+    color: #d63447;
+}
+
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(14px); }
     to { opacity: 1; transform: translateY(0); }
