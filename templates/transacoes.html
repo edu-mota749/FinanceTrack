@@ -15,20 +15,22 @@
             <nav class="sidebar-nav">
                 <a class="nav-item" href="{{ url_for('dashboard') }}">Dashboard</a>
                 <a class="nav-item active" href="{{ url_for('transacoes') }}">Transações</a>
-                <a class="nav-item" href="#">Relatórios</a>
+                <a class="nav-item" href="{{ url_for('relatorios') }}">Relatórios</a>
                 <a class="nav-item" href="#">Configurações</a>
                 <a class="nav-item logout" href="{{ url_for('logout') }}">Sair</a>
             </nav>
         </aside>
+        <div class="sidebar-overlay hidden" onclick="toggleSidebar(false)"></div>
 
         <main class="dashboard-main">
             <header class="dashboard-header">
+                <button type="button" class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
                 <div>Olá, <strong>{{ user_name }}</strong></div>
             </header>
 
             <section class="filter-card">
                 <div class="card-title">FILTROS</div>
-                <form action="{{ url_for('transacoes') }}" method="get">
+                <form action="{{ url_for('transacoes') }}" method="get" id="filterForm">
                     <div class="filter-grid">
                         <div class="filter-group">
                             <label>Intervalo de Datas</label>
@@ -79,7 +81,7 @@
                                 </label>
                             </div>
                             <div class="filter-actions">
-                                <button type="submit" class="secondary-button">Remover Filtros</button>
+                                <button type="button" class="secondary-button" onclick="clearFilters()">Remover Filtros</button>
                                 <button type="submit" class="add-transaction-button">Aplicar Filtros</button>
                             </div>
                         </div>
@@ -105,7 +107,7 @@
                         <tbody>
                             {% if transactions %}
                                 {% for tx in transactions %}
-                                <tr>
+                                <tr class="transaction-row" data-id="{{ tx.id }}" data-date="{{ tx.date.isoformat() }}" data-category-id="{{ tx.category_id }}" data-type="{{ tx.type }}" data-amount="{{ tx.amount }}" data-description="{{ tx.description|e }}">
                                     <td>{{ tx.date.strftime('%d/%m/%Y') }}</td>
                                     <td>{{ tx.category.name }}</td>
                                     <td class="{{ 'income' if tx.type == 'income' else 'expense' }}">
@@ -123,7 +125,7 @@
                     </table>
                 </div>
                 <div style="margin-top: 22px; display: flex; justify-content: flex-end;">
-                    <button type="button" class="add-transaction-button" onclick="openModal()">+ Adicionar</button>
+                    <button type="button" class="add-transaction-button" onclick="openAddModal()">+ Adicionar</button>
                 </div>
             </section>
         </main>
@@ -132,13 +134,14 @@
     <div class="modal-backdrop hidden" id="transactionModal">
         <div class="modal-card">
             <button type="button" class="modal-close" onclick="closeModal()">×</button>
-            <h2 class="modal-title">ADICIONAR TRANSAÇÃO</h2>
-            <form action="{{ url_for('adicionar_transacao') }}" method="post" class="modal-form">
+            <h2 class="modal-title" id="modalTitle">ADICIONAR TRANSAÇÃO</h2>
+            <form action="{{ url_for('adicionar_transacao') }}" method="post" class="modal-form" id="transactionForm">
+                <input type="hidden" name="transaction_id" id="transactionId" value="">
                 <label class="modal-label">Data:</label>
-                <input class="modal-input" type="date" name="date" required>
+                <input class="modal-input" type="date" name="date" id="transactionDate" required>
 
                 <label class="modal-label">Categoria:</label>
-                <select class="modal-input" name="category_id" required>
+                <select class="modal-input" name="category_id" id="transactionCategory" required>
                     <option value="">Selecione</option>
                     {% for category in categories %}
                     <option value="{{ category.id }}">{{ category.name }}</option>
@@ -146,29 +149,41 @@
                 </select>
 
                 <label class="modal-label">Valor:</label>
-                <input class="modal-input" type="text" name="amount" placeholder="R$" required>
+                <input class="modal-input" type="text" name="amount" id="transactionAmount" placeholder="R$" required>
 
                 <label class="modal-label">Descrição:</label>
-                <input class="modal-input" type="text" name="description" placeholder="Descrição da transação">
+                <input class="modal-input" type="text" name="description" id="transactionDescription" placeholder="Descrição da transação">
 
                 <label class="modal-label">Tipo:</label>
                 <div class="radio-row modal-radio-row">
                     <label class="radio-option">
-                        <input type="radio" name="tipo" value="income" checked>
+                        <input type="radio" name="tipo" value="income" id="transactionTypeIncome" checked>
                         Receita
                     </label>
                     <label class="radio-option">
-                        <input type="radio" name="tipo" value="expense">
+                        <input type="radio" name="tipo" value="expense" id="transactionTypeExpense">
                         Despesa
                     </label>
                 </div>
 
-                <button type="submit" class="add-transaction-button modal-submit">Confirmar</button>
+                <div class="modal-actions">
+                    <button type="button" class="secondary-button modal-delete-button hidden" id="deleteTransactionButton" onclick="requestDeleteTransaction()">Excluir</button>
+                    <button type="submit" class="add-transaction-button modal-submit" id="saveTransactionButton">Salvar</button>
+                </div>
             </form>
+            <form id="deleteTransactionForm" method="post"></form>
         </div>
     </div>
 
     <script>
+        const sidebarShell = document.querySelector('.dashboard-shell');
+
+        function toggleSidebar(open = null) {
+            const shell = document.querySelector('.dashboard-shell');
+            const shouldOpen = open === null ? !shell.classList.contains('sidebar-open') : open;
+            shell.classList.toggle('sidebar-open', shouldOpen);
+        }
+
         function setDateRange(range) {
             const today = new Date();
             const start = document.querySelector("input[name='start_date']");
@@ -189,13 +204,66 @@
             }
         }
 
-        function openModal() {
-            document.getElementById('transactionModal').classList.remove('hidden');
+        function clearFilters() {
+            const form = document.getElementById('filterForm');
+            form.querySelectorAll('input[type="date"], input[type="text"]').forEach((input) => input.value = '');
+            form.querySelector('select[name="category_id"]').value = '';
+            const allTipo = form.querySelector('input[name="tipo"][value="all"]');
+            if (allTipo) allTipo.checked = true;
+            form.submit();
+        }
+
+        function openAddModal() {
+            const modal = document.getElementById('transactionModal');
+            const form = document.getElementById('transactionForm');
+            document.getElementById('modalTitle').textContent = 'ADICIONAR TRANSAÇÃO';
+            form.action = '{{ url_for('adicionar_transacao') }}';
+            document.getElementById('transactionId').value = '';
+            document.getElementById('transactionDate').value = '';
+            document.getElementById('transactionCategory').value = '';
+            document.getElementById('transactionAmount').value = '';
+            document.getElementById('transactionDescription').value = '';
+            document.getElementById('transactionTypeIncome').checked = true;
+            document.getElementById('deleteTransactionButton').classList.add('hidden');
+            modal.classList.remove('hidden');
+        }
+
+        function openEditModal(row) {
+            const modal = document.getElementById('transactionModal');
+            const form = document.getElementById('transactionForm');
+            const id = row.dataset.id;
+            document.getElementById('modalTitle').textContent = 'EDITAR TRANSAÇÃO';
+            form.action = `/transacoes/editar/${id}`;
+            document.getElementById('transactionId').value = id;
+            document.getElementById('transactionDate').value = row.dataset.date;
+            document.getElementById('transactionCategory').value = row.dataset.categoryId;
+            document.getElementById('transactionAmount').value = row.dataset.amount;
+            document.getElementById('transactionDescription').value = row.dataset.description;
+            if (row.dataset.type === 'income') {
+                document.getElementById('transactionTypeIncome').checked = true;
+            } else {
+                document.getElementById('transactionTypeExpense').checked = true;
+            }
+            document.getElementById('deleteTransactionButton').classList.remove('hidden');
+            document.getElementById('deleteTransactionButton').dataset.id = id;
+            document.getElementById('deleteTransactionForm').action = `/transacoes/excluir/${id}`;
+            modal.classList.remove('hidden');
         }
 
         function closeModal() {
             document.getElementById('transactionModal').classList.add('hidden');
         }
+
+        function requestDeleteTransaction() {
+            if (!confirm('Tem certeza de que deseja excluir esta transação?')) {
+                return;
+            }
+            document.getElementById('deleteTransactionForm').submit();
+        }
+
+        document.querySelectorAll('.transaction-row').forEach((row) => {
+            row.addEventListener('click', () => openEditModal(row));
+        });
 
         document.getElementById('transactionModal').addEventListener('click', function(event) {
             if (event.target === this) {

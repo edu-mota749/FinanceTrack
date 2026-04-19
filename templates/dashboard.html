@@ -16,14 +16,16 @@
             <nav class="sidebar-nav">
                 <a class="nav-item active" href="{{ url_for('dashboard') }}">Dashboard</a>
                 <a class="nav-item" href="{{ url_for('transacoes') }}">Transações</a>
-                <a class="nav-item" href="#">Relatórios</a>
+                <a class="nav-item" href="{{ url_for('relatorios') }}">Relatórios</a>
                 <a class="nav-item" href="#">Configurações</a>
                 <a class="nav-item logout" href="{{ url_for('logout') }}">Sair</a>
             </nav>
         </aside>
+        <div class="sidebar-overlay hidden" onclick="toggleSidebar(false)"></div>
 
         <main class="dashboard-main">
             <header class="dashboard-header">
+                <button type="button" class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
                 <div>Olá, <strong>{{ user_name }}</strong></div>
             </header>
 
@@ -107,5 +109,12 @@
         };
     </script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        function toggleSidebar(open = null) {
+            const shell = document.querySelector('.dashboard-shell');
+            const shouldOpen = open === null ? !shell.classList.contains('sidebar-open') : open;
+            shell.classList.toggle('sidebar-open', shouldOpen);
+        }
+    </script>
 </body>
 </html>

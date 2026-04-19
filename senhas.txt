@@ -1,0 +1,16 @@
+senha root Mysql: AdminRoot!2026
+
+senha usuario: CREATE USER 'Admin'@'localhost' IDENTIFIED BY '!Finance@2026!'; 
+
+
+Terminal 1 MYSQL
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+
+Start-Service MySQL80
+
+Terminal 2 Flask
+cd C:\FinanceTrack
+
+.\.venv\Scripts\Activate.ps1
+
+python app.py

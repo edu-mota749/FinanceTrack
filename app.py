@@ -1,9 +1,12 @@
+import io
+import calendar
 import os
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from urllib.parse import quote_plus
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
+from fpdf import FPDF
 
 load_dotenv()
 
@@ -59,6 +62,130 @@ class Transaction(db.Model):
 
     user = db.relationship("User", back_populates="transactions")
     category = db.relationship("Category", back_populates="transactions")
+
+
+class Relatorio(db.Model):
+    __tablename__ = "relatorios"
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=False)
+    periodo_inicio = db.Column(db.Date, nullable=False)
+    periodo_fim = db.Column(db.Date, nullable=False)
+    total_receitas = db.Column(db.Float, nullable=False)
+    total_despesas = db.Column(db.Float, nullable=False)
+    saldo = db.Column(db.Float, nullable=False)
+    arquivo_nome = db.Column(db.String(200), nullable=False)
+    criado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    usuario = db.relationship("User", backref="relatorios")
+
+
+def format_periodo_por_extenso(data_obj):
+    meses = {
+        1: "Janeiro",
+        2: "Fevereiro",
+        3: "Março",
+        4: "Abril",
+        5: "Maio",
+        6: "Junho",
+        7: "Julho",
+        8: "Agosto",
+        9: "Setembro",
+        10: "Outubro",
+        11: "Novembro",
+        12: "Dezembro",
+    }
+    return f"{meses[data_obj.month]} {data_obj.year}"
+
+
+def gerar_pdf_relatorio(user, transactions, period_start, period_end, arquivo_nome=None):
+    incomes_total = sum(tx.amount for tx in transactions if tx.type == "income")
+    expenses_total = sum(tx.amount for tx in transactions if tx.type == "expense")
+    balance_total = incomes_total - expenses_total
+
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "Relatório Financeiro", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 8, f"Usuário: {user.name}", ln=True)
+    pdf.cell(0, 8, f"Período: {period_start.strftime('%d/%m/%Y')} - {period_end.strftime('%d/%m/%Y')}", ln=True)
+    pdf.cell(0, 8, f"Gerado em: {datetime.utcnow().strftime('%d/%m/%Y %H:%M:%S')} UTC", ln=True)
+    pdf.ln(6)
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, "Resumo", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 6, f"Receitas: R$ {incomes_total:.2f}".replace('.', ','), ln=True)
+    pdf.cell(0, 6, f"Despesas: R$ {expenses_total:.2f}".replace('.', ','), ln=True)
+    pdf.cell(0, 6, f"Saldo: R$ {balance_total:.2f}".replace('.', ','), ln=True)
+    pdf.ln(8)
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, "Transações", ln=True)
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(245, 245, 245)
+    pdf.cell(30, 7, "Data", 1, 0, 'C', True)
+    pdf.cell(50, 7, "Categoria", 1, 0, 'C', True)
+    pdf.cell(30, 7, "Tipo", 1, 0, 'C', True)
+    pdf.cell(35, 7, "Valor", 1, 0, 'C', True)
+    pdf.cell(0, 7, "Descrição", 1, 1, 'C', True)
+    pdf.set_font("Arial", "", 10)
+
+    for tx in transactions:
+        pdf.cell(30, 7, tx.date.strftime('%d/%m/%Y'), 1)
+        pdf.cell(50, 7, tx.category.name[:30], 1)
+        pdf.cell(30, 7, "Receita" if tx.type == "income" else "Despesa", 1)
+        pdf.cell(35, 7, f"R$ {tx.amount:.2f}".replace('.', ','), 1)
+        pdf.multi_cell(0, 7, tx.description or "", 1)
+
+    if arquivo_nome is None:
+        arquivo_nome = f"Relatório {format_periodo_por_extenso(period_start)}.pdf"
+    return arquivo_nome, pdf.output(dest='S').encode('latin1')
+
+
+def get_monthly_report_cards(user):
+    month_rows = (
+        db.session.query(
+            db.func.year(Transaction.date).label("year"),
+            db.func.month(Transaction.date).label("month"),
+        )
+        .filter(Transaction.user_id == user.id)
+        .group_by(db.func.year(Transaction.date), db.func.month(Transaction.date))
+        .order_by(db.desc(db.func.year(Transaction.date)), db.desc(db.func.month(Transaction.date)))
+        .all()
+    )
+
+    existing_reports = {
+        (rel.periodo_inicio.year, rel.periodo_inicio.month): rel
+        for rel in Relatorio.query.filter_by(usuario_id=user.id).all()
+    }
+
+    report_cards = []
+    for month_row in month_rows:
+        year = int(month_row.year)
+        month = int(month_row.month)
+        period_start = date(year, month, 1)
+        period_end = date(year, month, calendar.monthrange(year, month)[1])
+        existing = existing_reports.get((year, month))
+        arquivo_nome = (
+            existing.arquivo_nome
+            if existing
+            else f"Relatório {format_periodo_por_extenso(period_start)}.pdf"
+        )
+
+        report_cards.append({
+            "year": year,
+            "month": month,
+            "label": f"Relatório {format_periodo_por_extenso(period_start)}",
+            "subtitle": f"Transações de {format_periodo_por_extenso(period_start)}",
+            "arquivo_nome": arquivo_nome,
+            "periodo_inicio": period_start,
+            "periodo_fim": period_end,
+            "relatorio_id": existing.id if existing else None,
+        })
+
+    return report_cards
 
 
 def create_default_categories():
@@ -232,6 +359,254 @@ def adicionar_transacao():
 
     flash("Transação adicionada com sucesso.", "success")
     return redirect(url_for("transacoes"))
+
+
+@app.route("/transacoes/editar/<int:transaction_id>", methods=["POST"])
+def editar_transacao(transaction_id):
+    user = get_current_user()
+    transaction = Transaction.query.filter_by(id=transaction_id, user_id=user.id).first()
+    if transaction is None:
+        flash("Transação não encontrada.", "error")
+        return redirect(url_for("transacoes"))
+
+    category_id = request.form.get("category_id")
+    tipo = request.form.get("tipo")
+    amount_text = request.form.get("amount", "").strip().replace(',', '.')
+    date_text = request.form.get("date", "").strip()
+    description = request.form.get("description", "").strip()
+
+    if not category_id or not tipo or not amount_text or not date_text:
+        flash("Preencha todos os campos obrigatórios para editar a transação.", "error")
+        return redirect(url_for("transacoes"))
+
+    try:
+        amount = float(amount_text)
+    except ValueError:
+        flash("Informe um valor válido para a transação.", "error")
+        return redirect(url_for("transacoes"))
+
+    category = Category.query.get(category_id)
+    if category is None:
+        flash("Selecione uma categoria válida.", "error")
+        return redirect(url_for("transacoes"))
+
+    try:
+        tx_date = date.fromisoformat(date_text)
+    except ValueError:
+        flash("Informe uma data válida para a transação.", "error")
+        return redirect(url_for("transacoes"))
+
+    transaction.category_id = category.id
+    transaction.type = tipo
+    transaction.amount = amount
+    transaction.date = tx_date
+    transaction.description = description
+    db.session.commit()
+
+    flash("Transação atualizada com sucesso.", "success")
+    return redirect(url_for("transacoes"))
+
+
+@app.route("/transacoes/excluir/<int:transaction_id>", methods=["POST"])
+def excluir_transacao(transaction_id):
+    user = get_current_user()
+    transaction = Transaction.query.filter_by(id=transaction_id, user_id=user.id).first()
+    if transaction is None:
+        flash("Transação não encontrada.", "error")
+        return redirect(url_for("transacoes"))
+
+    db.session.delete(transaction)
+    db.session.commit()
+    flash("Transação excluída com sucesso.", "success")
+    return redirect(url_for("transacoes"))
+
+
+@app.route("/relatorios")
+def relatorios():
+    user = get_current_user()
+    relatorios_gerados = get_monthly_report_cards(user)
+
+    return render_template(
+        "relatorios.html",
+        user_name=user.name,
+        relatorios_gerados=relatorios_gerados,
+    )
+
+
+@app.route("/relatorios/download/<int:relatorio_id>")
+def download_relatorio(relatorio_id):
+    user = get_current_user()
+    rel = Relatorio.query.filter_by(id=relatorio_id, usuario_id=user.id).first()
+    if rel is None:
+        flash("Relatório não encontrado.", "error")
+        return redirect(url_for("relatorios"))
+
+    transactions = (
+        Transaction.query.filter(
+            Transaction.user_id == user.id,
+            Transaction.date >= rel.periodo_inicio,
+            Transaction.date <= rel.periodo_fim,
+        )
+        .order_by(Transaction.date)
+        .all()
+    )
+
+    arquivo_nome, pdf_bytes = gerar_pdf_relatorio(user, transactions, rel.periodo_inicio, rel.periodo_fim)
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=arquivo_nome,
+    )
+
+
+@app.route("/relatorios/download/<int:year>/<int:month>")
+def download_relatorio_mes(year, month):
+    user = get_current_user()
+    try:
+        period_start = date(year, month, 1)
+    except ValueError:
+        flash("Período inválido para download do relatório.", "error")
+        return redirect(url_for("relatorios"))
+
+    period_end = date(year, month, calendar.monthrange(year, month)[1])
+    transactions = (
+        Transaction.query.filter(
+            Transaction.user_id == user.id,
+            Transaction.date >= period_start,
+            Transaction.date <= period_end,
+        )
+        .order_by(Transaction.date)
+        .all()
+    )
+
+    if not transactions:
+        flash("Nenhuma transação encontrada para este mês.", "error")
+        return redirect(url_for("relatorios"))
+
+    incomes_total = sum(tx.amount for tx in transactions if tx.type == "income")
+    expenses_total = sum(tx.amount for tx in transactions if tx.type == "expense")
+    balance_total = incomes_total - expenses_total
+
+    arquivo_nome = f"Relatório {format_periodo_por_extenso(period_start)}.pdf"
+    arquivo_nome, pdf_bytes = gerar_pdf_relatorio(user, transactions, period_start, period_end, arquivo_nome)
+
+    rel = Relatorio.query.filter_by(
+        usuario_id=user.id,
+        periodo_inicio=period_start,
+        periodo_fim=period_end,
+    ).first()
+
+    if rel is None:
+        rel = Relatorio(
+            usuario_id=user.id,
+            periodo_inicio=period_start,
+            periodo_fim=period_end,
+            total_receitas=incomes_total,
+            total_despesas=expenses_total,
+            saldo=balance_total,
+            arquivo_nome=arquivo_nome,
+        )
+        db.session.add(rel)
+    else:
+        rel.total_receitas = incomes_total
+        rel.total_despesas = expenses_total
+        rel.saldo = balance_total
+        rel.arquivo_nome = arquivo_nome
+
+    db.session.commit()
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=arquivo_nome,
+    )
+
+
+@app.route("/relatorios/baixar", methods=["POST"])
+def baixar_relatorio():
+    user = get_current_user()
+    start_date = request.form.get("start_date")
+    end_date = request.form.get("end_date")
+
+    try:
+        period_start = date.fromisoformat(start_date)
+        period_end = date.fromisoformat(end_date)
+    except (TypeError, ValueError):
+        flash("Período inválido para gerar o relatório.", "error")
+        return redirect(url_for("relatorios"))
+
+    transactions = (
+        Transaction.query.filter(
+            Transaction.user_id == user.id,
+            Transaction.date >= period_start,
+            Transaction.date <= period_end,
+        )
+        .order_by(Transaction.date)
+        .all()
+    )
+
+    incomes_total = sum(tx.amount for tx in transactions if tx.type == "income")
+    expenses_total = sum(tx.amount for tx in transactions if tx.type == "expense")
+    balance_total = incomes_total - expenses_total
+
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "Relatório Financeiro", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 8, f"Usuário: {user.name}", ln=True)
+    pdf.cell(0, 8, f"Período: {period_start.strftime('%d/%m/%Y')} - {period_end.strftime('%d/%m/%Y')}", ln=True)
+    pdf.cell(0, 8, f"Gerado em: {datetime.utcnow().strftime('%d/%m/%Y %H:%M:%S')} UTC", ln=True)
+    pdf.ln(6)
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, "Resumo", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 6, f"Receitas: R$ {incomes_total:.2f}".replace('.', ','), ln=True)
+    pdf.cell(0, 6, f"Despesas: R$ {expenses_total:.2f}".replace('.', ','), ln=True)
+    pdf.cell(0, 6, f"Saldo: R$ {balance_total:.2f}".replace('.', ','), ln=True)
+    pdf.ln(8)
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, "Transações", ln=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.set_fill_color(245, 245, 245)
+    pdf.cell(30, 7, "Data", 1, 0, 'C', True)
+    pdf.cell(55, 7, "Categoria", 1, 0, 'C', True)
+    pdf.cell(30, 7, "Tipo", 1, 0, 'C', True)
+    pdf.cell(35, 7, "Valor", 1, 0, 'C', True)
+    pdf.cell(0, 7, "Descrição", 1, 1, 'C', True)
+
+    for tx in transactions:
+        pdf.cell(30, 7, tx.date.strftime('%d/%m/%Y'), 1)
+        pdf.cell(55, 7, tx.category.name[:30], 1)
+        pdf.cell(30, 7, "Receita" if tx.type == "income" else "Despesa", 1)
+        pdf.cell(35, 7, f"R$ {tx.amount:.2f}".replace('.', ','), 1)
+        pdf.multi_cell(0, 7, tx.description or "", 1)
+
+    arquivo_nome = f"relatorio_{user.name.lower().replace(' ', '_')}_{period_start.strftime('%Y%m')}.pdf"
+    relatorio = Relatorio(
+        usuario_id=user.id,
+        periodo_inicio=period_start,
+        periodo_fim=period_end,
+        total_receitas=incomes_total,
+        total_despesas=expenses_total,
+        saldo=balance_total,
+        arquivo_nome=arquivo_nome,
+    )
+    db.session.add(relatorio)
+    db.session.commit()
+
+    pdf_bytes = pdf.output(dest='S').encode('latin1')
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=arquivo_nome,
+    )
 
 
 @app.route("/")
