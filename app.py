@@ -6,6 +6,7 @@ from functools import wraps
 from urllib.parse import quote_plus
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text, case
 from dotenv import load_dotenv
 from fpdf import FPDF
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -52,12 +53,16 @@ class User(db.Model):
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(200), nullable=False, unique=True)
     transactions = db.relationship("Transaction", back_populates="user")
+    categories = db.relationship("Category", back_populates="user")
 
 
 class Category(db.Model):
     __tablename__ = "categorias"
+    __table_args__ = (db.UniqueConstraint("user_id", "name", name="uq_categoria_usuario_nome"),)
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False, unique=True)
+    name = db.Column(db.String(120), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=True)
+    user = db.relationship("User", back_populates="categories")
     transactions = db.relationship("Transaction", back_populates="category")
 
 
@@ -213,11 +218,34 @@ def get_monthly_report_cards(user):
 
 def create_default_categories():
     default_names = ["Salário", "Lazer", "Alimentação", "Transporte", "Saúde", "Serviços", "Moradia"]
-    existing = {category.name for category in Category.query.all()}
+    existing = {category.name for category in Category.query.filter(Category.user_id.is_(None)).all()}
     for name in default_names:
         if name not in existing:
-            db.session.add(Category(name=name))
+            db.session.add(Category(name=name, user_id=None))
     db.session.commit()
+
+
+def ensure_category_schema():
+    """Ensure the categorias table has user_id column and proper constraints."""
+    try:
+        inspector = db.inspect(db.engine)
+        columns = [column["name"] for column in inspector.get_columns("categorias")]
+        if "user_id" not in columns:
+            db.session.execute(text("ALTER TABLE categorias ADD COLUMN user_id INT NULL"))
+            db.session.commit()
+    except Exception:
+        pass
+
+
+def cleanup_test_categories():
+    """Remove test categories that have no transactions."""
+    try:
+        for category in Category.query.filter(Category.name.ilike("%teste%")).all():
+            if not category.transactions:
+                db.session.delete(category)
+        db.session.commit()
+    except Exception:
+        pass
 
 
 
@@ -246,40 +274,100 @@ def login_required(view):
     return wrapped_view
 
 
-def build_dashboard_data(user):
+def build_dashboard_data(user, period="month", selected_month=None, selected_year=None):
     today = date.today()
-    month_start = today.replace(day=1)
-    month_end = month_start + timedelta(days=29)
-    transactions = (
-        Transaction.query.filter(
-            Transaction.user_id == user.id,
-            Transaction.date >= month_start,
-            Transaction.date <= month_end,
+    month_labels_pt = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+    if period == "year":
+        try:
+            year = int(selected_year)
+        except (TypeError, ValueError):
+            year = today.year
+        start_date = date(year, 1, 1)
+        end_date = date(year, 12, 31)
+        labels = month_labels_pt
+        period_description = f"Ano {year}"
+        transactions = (
+            Transaction.query.filter(
+                Transaction.user_id == user.id,
+                Transaction.date >= start_date,
+                Transaction.date <= end_date,
+            )
+            .order_by(Transaction.date)
+            .all()
         )
-        .order_by(Transaction.date)
-        .all()
-    )
-
-    labels = [f"{day:02d}" for day in range(1, 31)]
-    incomes_by_day = [0.0] * 30
-    expenses_by_day = [0.0] * 30
-
-    for tx in transactions:
-        index = tx.date.day - 1
-        if 0 <= index < 30:
+        incomes_by_period = [0.0] * 12
+        expenses_by_period = [0.0] * 12
+        for tx in transactions:
+            index = tx.date.month - 1
             if tx.type == "income":
-                incomes_by_day[index] += tx.amount
+                incomes_by_period[index] += tx.amount
             else:
-                expenses_by_day[index] += tx.amount
+                expenses_by_period[index] += tx.amount
 
-    balance_by_day = []
+    elif period == "all":
+        transactions = (
+            Transaction.query.filter(Transaction.user_id == user.id)
+            .order_by(Transaction.date)
+            .all()
+        )
+        if transactions:
+            start_year = transactions[0].date.year
+            end_year = today.year
+            labels = [str(year) for year in range(start_year, end_year + 1)]
+            incomes_by_period = [0.0] * len(labels)
+            expenses_by_period = [0.0] * len(labels)
+            for tx in transactions:
+                index = tx.date.year - start_year
+                if tx.type == "income":
+                    incomes_by_period[index] += tx.amount
+                else:
+                    expenses_by_period[index] += tx.amount
+            period_description = "Geral"
+        else:
+            labels = [str(today.year)]
+            incomes_by_period = [0.0]
+            expenses_by_period = [0.0]
+            period_description = "Geral"
+
+    else:
+        try:
+            year, month = map(int, selected_month.split("-")) if selected_month else (today.year, today.month)
+        except (TypeError, ValueError):
+            year = today.year
+            month = today.month
+        days = calendar.monthrange(year, month)[1]
+        start_date = date(year, month, 1)
+        end_date = date(year, month, days)
+        labels = [f"{day:02d}" for day in range(1, days + 1)]
+        period_description = f"{month_labels_pt[month - 1]} {year}"
+        transactions = (
+            Transaction.query.filter(
+                Transaction.user_id == user.id,
+                Transaction.date >= start_date,
+                Transaction.date <= end_date,
+            )
+            .order_by(Transaction.date)
+            .all()
+        )
+        incomes_by_period = [0.0] * days
+        expenses_by_period = [0.0] * days
+        for tx in transactions:
+            index = tx.date.day - 1
+            if 0 <= index < days:
+                if tx.type == "income":
+                    incomes_by_period[index] += tx.amount
+                else:
+                    expenses_by_period[index] += tx.amount
+
+    balance_by_period = []
     balance_total = 0.0
-    for i in range(30):
-        balance_total += incomes_by_day[i] - expenses_by_day[i]
-        balance_by_day.append(round(balance_total, 2))
+    for i in range(len(incomes_by_period)):
+        balance_total += incomes_by_period[i] - expenses_by_period[i]
+        balance_by_period.append(round(balance_total, 2))
 
-    incomes_total = sum(incomes_by_day)
-    expenses_total = sum(expenses_by_day)
+    incomes_total = sum(incomes_by_period)
+    expenses_total = sum(expenses_by_period)
 
     category_totals = {}
     for tx in transactions:
@@ -303,9 +391,9 @@ def build_dashboard_data(user):
 
     return {
         "labels": labels,
-        "incomes": [round(value, 2) for value in incomes_by_day],
-        "expenses": [round(value, 2) for value in expenses_by_day],
-        "balances": balance_by_day,
+        "incomes": [round(value, 2) for value in incomes_by_period],
+        "expenses": [round(value, 2) for value in expenses_by_period],
+        "balances": balance_by_period,
         "incomes_total": round(incomes_total, 2),
         "expenses_total": round(expenses_total, 2),
         "balance_total": round(incomes_total - expenses_total, 2),
@@ -314,24 +402,28 @@ def build_dashboard_data(user):
         "category_breakdown": category_breakdown,
         "category_total": category_total,
         "recent_transactions": recent_transactions,
+        "period_description": period_description,
     }
 
 
 def build_transaction_query(user):
     query = Transaction.query.filter(Transaction.user_id == user.id)
-    start_date = request.args.get("start_date")
-    end_date = request.args.get("end_date")
-    category_id = request.args.get("category_id")
+    start_date = (request.args.get("start_date") or "").strip()
+    end_date = (request.args.get("end_date") or "").strip()
+    category_ids = request.args.getlist("category_id")
     tipo = request.args.get("tipo")
-    min_value = request.args.get("min_value")
-    max_value = request.args.get("max_value")
+    min_value = (request.args.get("min_value") or "").strip()
+    max_value = (request.args.get("max_value") or "").strip()
+    sort_by = request.args.get("sort_by")
+    sort_dir = request.args.get("sort_dir")
 
     if start_date:
         query = query.filter(Transaction.date >= start_date)
     if end_date:
         query = query.filter(Transaction.date <= end_date)
-    if category_id and category_id.isdigit():
-        query = query.filter(Transaction.category_id == int(category_id))
+    valid_category_ids = [int(cid) for cid in category_ids if cid.isdigit()]
+    if valid_category_ids:
+        query = query.filter(Transaction.category_id.in_(valid_category_ids))
     if tipo in ["income", "expense"]:
         query = query.filter(Transaction.type == tipo)
     if min_value:
@@ -345,7 +437,27 @@ def build_transaction_query(user):
         except ValueError:
             pass
 
-    return query.order_by(Transaction.date.desc())
+    # Apply sorting
+    if sort_by and sort_dir:
+        if sort_by == "data":
+            if sort_dir == "crescente":
+                query = query.order_by(Transaction.date.asc())
+            elif sort_dir == "decrescente":
+                query = query.order_by(Transaction.date.desc())
+        elif sort_by == "valor":
+            signed_amount = case(
+                (Transaction.type == "expense", -Transaction.amount),
+                else_=Transaction.amount,
+            )
+            if sort_dir == "crescente":
+                query = query.order_by(signed_amount.asc())
+            elif sort_dir == "decrescente":
+                query = query.order_by(signed_amount.desc())
+    else:
+        # Default ordering by date descending
+        query = query.order_by(Transaction.date.desc())
+
+    return query
 
 
 @app.route("/transacoes/adicionar", methods=["POST"])
@@ -353,12 +465,13 @@ def build_transaction_query(user):
 def adicionar_transacao():
     user = get_current_user()
     category_id = request.form.get("category_id")
+    new_category_name = request.form.get("new_category", "").strip()
     tipo = request.form.get("tipo")
     amount_text = request.form.get("amount", "").strip().replace(',', '.')
     date_text = request.form.get("date", "").strip()
     description = request.form.get("description", "").strip()
 
-    if not category_id or not tipo or not amount_text or not date_text:
+    if not tipo or not amount_text or not date_text:
         flash("Preencha todos os campos obrigatórios para adicionar a transação.", "error")
         return redirect(url_for("transacoes"))
 
@@ -368,9 +481,24 @@ def adicionar_transacao():
         flash("Informe um valor válido para a transação.", "error")
         return redirect(url_for("transacoes"))
 
-    category = Category.query.get(category_id)
+    category = None
+    if new_category_name:
+        category = Category.query.filter(
+            Category.name == new_category_name,
+            (Category.user_id.is_(None)) | (Category.user_id == user.id),
+        ).first()
+        if category is None:
+            category = Category(name=new_category_name, user_id=user.id)
+            db.session.add(category)
+            db.session.flush()
+    elif category_id and category_id.isdigit():
+        category = Category.query.filter(
+            Category.id == int(category_id),
+            (Category.user_id.is_(None)) | (Category.user_id == user.id),
+        ).first()
+
     if category is None:
-        flash("Selecione uma categoria válida.", "error")
+        flash("Selecione ou crie uma categoria válida.", "error")
         return redirect(url_for("transacoes"))
 
     try:
@@ -404,12 +532,13 @@ def editar_transacao(transaction_id):
         return redirect(url_for("transacoes"))
 
     category_id = request.form.get("category_id")
+    new_category_name = request.form.get("new_category", "").strip()
     tipo = request.form.get("tipo")
     amount_text = request.form.get("amount", "").strip().replace(',', '.')
     date_text = request.form.get("date", "").strip()
     description = request.form.get("description", "").strip()
 
-    if not category_id or not tipo or not amount_text or not date_text:
+    if not tipo or not amount_text or not date_text:
         flash("Preencha todos os campos obrigatórios para editar a transação.", "error")
         return redirect(url_for("transacoes"))
 
@@ -419,9 +548,24 @@ def editar_transacao(transaction_id):
         flash("Informe um valor válido para a transação.", "error")
         return redirect(url_for("transacoes"))
 
-    category = Category.query.get(category_id)
+    category = None
+    if new_category_name:
+        category = Category.query.filter(
+            Category.name == new_category_name,
+            (Category.user_id.is_(None)) | (Category.user_id == user.id),
+        ).first()
+        if category is None:
+            category = Category(name=new_category_name, user_id=user.id)
+            db.session.add(category)
+            db.session.flush()
+    elif category_id and category_id.isdigit():
+        category = Category.query.filter(
+            Category.id == int(category_id),
+            (Category.user_id.is_(None)) | (Category.user_id == user.id),
+        ).first()
+
     if category is None:
-        flash("Selecione uma categoria válida.", "error")
+        flash("Selecione ou crie uma categoria válida.", "error")
         return redirect(url_for("transacoes"))
 
     try:
@@ -796,11 +940,23 @@ def auth():
 @login_required
 def dashboard():
     user = get_current_user()
-    dashboard_data = build_dashboard_data(user)
+    period = request.args.get("period", "month")
+    selected_month = request.args.get("selected_month", date.today().strftime("%Y-%m"))
+    selected_year = request.args.get("selected_year", str(date.today().year))
+    dashboard_data = build_dashboard_data(
+        user,
+        period=period,
+        selected_month=selected_month,
+        selected_year=selected_year,
+    )
     return render_template(
         "dashboard.html",
         user_name=user.name,
         dashboard_data=dashboard_data,
+        filter_period=period,
+        selected_month=selected_month,
+        selected_year=selected_year,
+        current_year=date.today().year,
     )
 
 
@@ -808,7 +964,9 @@ def dashboard():
 @login_required
 def transacoes():
     user = get_current_user()
-    categories = Category.query.order_by(Category.name).all()
+    categories = Category.query.filter(
+        (Category.user_id.is_(None)) | (Category.user_id == user.id)
+    ).order_by(Category.name).all()
     query = build_transaction_query(user)
     transactions = query.all()
     return render_template(
@@ -819,10 +977,13 @@ def transacoes():
         filters={
             "start_date": request.args.get("start_date", ""),
             "end_date": request.args.get("end_date", ""),
-            "category_id": request.args.get("category_id", ""),
+            "date_range": request.args.get("date_range", "month"),
+            "category_id": request.args.getlist("category_id"),
             "tipo": request.args.get("tipo", "all"),
             "min_value": request.args.get("min_value", ""),
             "max_value": request.args.get("max_value", ""),
+            "sort_by": request.args.get("sort_by", ""),
+            "sort_dir": request.args.get("sort_dir", ""),
         },
     )
 
@@ -835,8 +996,10 @@ def logout():
 
 with app.app_context():
     db.create_all()
+    ensure_category_schema()
     user = get_default_user()
     create_default_categories()
+    cleanup_test_categories()
 
 
 if __name__ == "__main__":
