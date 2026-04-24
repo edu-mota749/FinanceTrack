@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FinanceTrack | Transações</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/date-inputs.js') }}"></script>
 </head>
 <body>
     <div class="page-shell dashboard-shell">
@@ -39,78 +40,94 @@
             <section class="filter-card">
                 <div class="card-title">FILTROS</div>
                 <form action="{{ url_for('transacoes') }}" method="get" id="filterForm">
-                    <div class="filter-grid">
-                        <div class="filter-group">
-                            <label>Intervalo de Datas</label>
-                            <input type="hidden" name="date_range" id="dateRangeInput" value="{{ filters.date_range }}">
-                            <div class="date-buttons">
-                                <button type="button" class="pill-button date-range-button" data-range="month" onclick="setDateRange('month')">Mês Atual</button>
-                                <button type="button" class="pill-button date-range-button" data-range="all" onclick="setDateRange('all')">Todas transações</button>
-                                <button type="button" class="pill-button date-range-button" data-range="custom" onclick="setDateRange('custom')">Personalizado</button>
-                            </div>
-                            <div class="filter-row">
-                                <label>
-                                    <span>De</span>
-                                    <input class="small-input" type="date" name="start_date" value="{{ filters.start_date }}">
-                                </label>
-                                <label>
-                                    <span>Até</span>
-                                    <input class="small-input" type="date" name="end_date" value="{{ filters.end_date }}">
-                                </label>
-                            </div>
-                            <label>Intervalo de Valores</label>
-                            <div class="filter-row">
-                                <div class="currency-input">
-                                    <span class="input-prefix">R$</span>
-                                    <input class="small-input currency-field" type="text" name="min_value" placeholder="0,00" value="{{ filters.min_value if filters.min_value is defined else '' }}">
+                    <div class="filter-grid transactions-filter-grid">
+                        <div class="filter-group transactions-filter-column transactions-filter-left">
+                            <div class="transactions-filter-slot">
+                                <label>Intervalo de Datas</label>
+                                <input type="hidden" name="date_range" id="dateRangeInput" value="{{ filters.date_range }}">
+                                <div class="date-buttons">
+                                    <button type="button" class="pill-button date-range-button" data-range="month" onclick="setDateRange('month')">Mês Atual</button>
+                                    <button type="button" class="pill-button date-range-button" data-range="all" onclick="setDateRange('all')">Todas transações</button>
+                                    <button type="button" class="pill-button date-range-button" data-range="custom" onclick="setDateRange('custom')">Personalizado</button>
                                 </div>
-                                <div class="currency-input">
-                                    <span class="input-prefix">R$</span>
-                                    <input class="small-input currency-field" type="text" name="max_value" placeholder="0,00" value="{{ filters.max_value if filters.max_value is defined else '' }}">
+                            </div>
+
+                            <div class="transactions-filter-slot">
+                                <div class="filter-row">
+                                    <label>
+                                        <span>De</span>
+                                        <input class="small-input" type="date" name="start_date" value="{{ filters.start_date }}">
+                                    </label>
+                                    <label>
+                                        <span>Até</span>
+                                        <input class="small-input" type="date" name="end_date" value="{{ filters.end_date }}">
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="transactions-filter-slot">
+                                <label>Intervalo de Valores</label>
+                                <div class="filter-row">
+                                    <div class="currency-input">
+                                        <span class="input-prefix">R$</span>
+                                        <input class="small-input currency-field" type="text" name="min_value" placeholder="0,00" value="{{ filters.min_value if filters.min_value is defined else '' }}">
+                                    </div>
+                                    <div class="currency-input">
+                                        <span class="input-prefix">R$</span>
+                                        <input class="small-input currency-field" type="text" name="max_value" placeholder="0,00" value="{{ filters.max_value if filters.max_value is defined else '' }}">
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="filter-group">
-                            <label>Categoria(s)</label>
-                            <div class="category-filter-container">
-                                <div class="category-filter-input" id="categoryFilterInput">
-                                    <span class="category-filter-icon">
-                                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="8" cy="8" r="7"></circle>
-                                            <line x1="13" y1="13" x2="19" y2="19"></line>
-                                        </svg>
-                                    </span>
-                                    <div class="category-pills" id="categoryPills"></div>
-                                    <input type="text" class="category-search" id="categorySearch" placeholder="Buscar categoria..." autocomplete="off" spellcheck="false" onfocus="openCategoryDropdown()" oninput="filterCategoryOptions(this.value)" onkeyup="filterCategoryOptions(this.value)">
+                        <div class="filter-group transactions-filter-column transactions-filter-right">
+                            <div class="transactions-filter-slot">
+                                <label>Categoria(s)</label>
+                                <div class="category-filter-container">
+                                    <div class="category-filter-input" id="categoryFilterInput">
+                                        <span class="category-filter-icon">
+                                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                                                <circle cx="8" cy="8" r="7"></circle>
+                                                <line x1="13" y1="13" x2="19" y2="19"></line>
+                                            </svg>
+                                        </span>
+                                        <div class="category-pills" id="categoryPills"></div>
+                                        <input type="text" class="category-search" id="categorySearch" placeholder="Buscar categoria..." autocomplete="off" spellcheck="false" onfocus="openCategoryDropdown()" oninput="filterCategoryOptions(this.value)" onkeyup="filterCategoryOptions(this.value)">
+                                    </div>
+                                    <div class="category-dropdown" id="categoryDropdown">
+                                        {% for category in categories %}
+                                        <label class="category-option">
+                                            <input type="checkbox" name="category_id" value="{{ category.id }}" data-name="{{ category.name }}" {% if category.id|string in filters.category_id %}checked{% endif %}>
+                                            <span>{{ category.name }}</span>
+                                        </label>
+                                        {% endfor %}
+                                    </div>
                                 </div>
-                                <div class="category-dropdown" id="categoryDropdown">
-                                    {% for category in categories %}
-                                    <label class="category-option">
-                                        <input type="checkbox" name="category_id" value="{{ category.id }}" data-name="{{ category.name }}" {% if category.id|string in filters.category_id %}checked{% endif %}>
-                                        <span>{{ category.name }}</span>
+                            </div>
+
+                            <div class="transactions-filter-slot">
+                                <label>Tipo de Transação</label>
+                                <div class="radio-row transaction-type-row">
+                                    <label class="radio-option" data-value="income">
+                                        <input type="radio" name="tipo" value="income" {% if filters.tipo == 'income' %}checked{% endif %}>
+                                        <span class="radio-label">Receitas</span>
                                     </label>
-                                    {% endfor %}
+                                    <label class="radio-option" data-value="expense">
+                                        <input type="radio" name="tipo" value="expense" {% if filters.tipo == 'expense' %}checked{% endif %}>
+                                        <span class="radio-label">Despesas</span>
+                                    </label>
+                                    <label class="radio-option" data-value="all">
+                                        <input type="radio" name="tipo" value="all" {% if filters.tipo == 'all' %}checked{% endif %}>
+                                        <span class="radio-label">Todos</span>
+                                    </label>
                                 </div>
                             </div>
-                            <label>Tipo de Transação</label>
-                            <div class="radio-row">
-                                <label class="radio-option" data-value="income">
-                                    <input type="radio" name="tipo" value="income" {% if filters.tipo == 'income' %}checked{% endif %}>
-                                    <span class="radio-label">Receitas</span>
-                                </label>
-                                <label class="radio-option" data-value="expense">
-                                    <input type="radio" name="tipo" value="expense" {% if filters.tipo == 'expense' %}checked{% endif %}>
-                                    <span class="radio-label">Despesas</span>
-                                </label>
-                                <label class="radio-option" data-value="all">
-                                    <input type="radio" name="tipo" value="all" {% if filters.tipo == 'all' %}checked{% endif %}>
-                                    <span class="radio-label">Todos</span>
-                                </label>
-                            </div>
-                            <div class="filter-actions">
-                                <button type="button" class="secondary-button" onclick="clearFilters()">Remover Filtros</button>
-                                <button type="submit" class="add-transaction-button">Aplicar Filtros</button>
+
+                            <div class="transactions-filter-slot transactions-filter-actions-slot">
+                                <div class="filter-actions">
+                                    <button type="button" class="secondary-button" onclick="clearFilters()">Remover Filtros</button>
+                                    <button type="submit" class="add-transaction-button">Aplicar Filtros</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -529,82 +546,129 @@
         // Sort table columns logic
         function initTableSort() {
             const sortableHeaders = document.querySelectorAll('.sortable');
-            
             const form = document.getElementById('filterForm');
-            
-            // Get current sort state from URL
-            const currentSortBy = new URLSearchParams(window.location.search).get('sort_by');
-            const currentSortDir = new URLSearchParams(window.location.search).get('sort_dir');
-            
-            // Restore visual state from URL
-            if (currentSortBy && currentSortDir) {
+            const tableBody = document.querySelector('.table-highlight tbody');
+            const rows = tableBody ? Array.from(tableBody.querySelectorAll('tr.transaction-row')) : [];
+
+            rows.forEach((row, index) => {
+                row.dataset.originalIndex = String(index);
+            });
+
+            let currentSortBy = new URLSearchParams(window.location.search).get('sort_by') || '';
+            let currentSortDir = new URLSearchParams(window.location.search).get('sort_dir') || '';
+
+            function getRowValue(row, sortField) {
+                if (sortField === 'date') {
+                    return new Date(row.dataset.date).getTime();
+                }
+
+                const amount = Number(row.dataset.amount || 0);
+                return row.dataset.type === 'expense' ? -amount : amount;
+            }
+
+            function updateHeaderState() {
                 sortableHeaders.forEach((header) => {
                     const sortField = header.dataset.sort;
-                    const shouldMatch = (sortField === 'date' && currentSortBy === 'data') || 
-                                       (sortField === 'amount' && currentSortBy === 'valor');
-                    if (shouldMatch) {
-                        header.classList.add(currentSortDir === 'crescente' ? 'sort-asc' : 'sort-desc');
-                    }
+                    const isActive = (sortField === 'date' && currentSortBy === 'data') || (sortField === 'amount' && currentSortBy === 'valor');
+                    header.classList.toggle('sort-asc', isActive && currentSortDir === 'crescente');
+                    header.classList.toggle('sort-desc', isActive && currentSortDir === 'decrescente');
                 });
             }
 
+            function applySort() {
+                if (!tableBody || rows.length < 2) {
+                    updateHeaderState();
+                    return;
+                }
+
+                const sortField = currentSortBy === 'data' ? 'date' : currentSortBy === 'valor' ? 'amount' : '';
+
+                const sortedRows = rows.slice().sort((leftRow, rightRow) => {
+                    if (!sortField || !currentSortDir) {
+                        return Number(leftRow.dataset.originalIndex) - Number(rightRow.dataset.originalIndex);
+                    }
+
+                    const leftValue = getRowValue(leftRow, sortField);
+                    const rightValue = getRowValue(rightRow, sortField);
+
+                    if (leftValue === rightValue) {
+                        return Number(leftRow.dataset.originalIndex) - Number(rightRow.dataset.originalIndex);
+                    }
+
+                    const direction = currentSortDir === 'crescente' ? 1 : -1;
+                    return leftValue > rightValue ? direction : -direction;
+                });
+
+                sortedRows.forEach((row) => tableBody.appendChild(row));
+                updateHeaderState();
+            }
+
+            function syncSortToUrl() {
+                const params = new URLSearchParams(window.location.search);
+
+                if (currentSortBy && currentSortDir) {
+                    params.set('sort_by', currentSortBy);
+                    params.set('sort_dir', currentSortDir);
+                } else {
+                    params.delete('sort_by');
+                    params.delete('sort_dir');
+                }
+
+                const newUrl = `${window.location.pathname}?${params.toString()}`.replace(/\?$/, '');
+                window.history.replaceState({}, '', newUrl);
+
+                let sortByInput = form.querySelector('input[name="sort_by"]');
+                let sortDirInput = form.querySelector('input[name="sort_dir"]');
+
+                if (!sortByInput) {
+                    sortByInput = document.createElement('input');
+                    sortByInput.type = 'hidden';
+                    sortByInput.name = 'sort_by';
+                    form.appendChild(sortByInput);
+                }
+
+                if (!sortDirInput) {
+                    sortDirInput = document.createElement('input');
+                    sortDirInput.type = 'hidden';
+                    sortDirInput.name = 'sort_dir';
+                    form.appendChild(sortDirInput);
+                }
+
+                sortByInput.value = currentSortBy;
+                sortDirInput.value = currentSortDir;
+            }
+
+            function setSortState(sortField) {
+                const fieldName = sortField === 'date' ? 'data' : 'valor';
+
+                if (currentSortBy === fieldName) {
+                    if (currentSortDir === 'crescente') {
+                        currentSortDir = 'decrescente';
+                    } else if (currentSortDir === 'decrescente') {
+                        currentSortBy = '';
+                        currentSortDir = '';
+                    } else {
+                        currentSortDir = 'crescente';
+                    }
+                } else {
+                    currentSortBy = fieldName;
+                    currentSortDir = 'crescente';
+                }
+
+                applySort();
+                syncSortToUrl();
+            }
+
+            applySort();
+            
             sortableHeaders.forEach((header) => {
                 header.addEventListener('click', function(e) {
-                    const sortField = this.dataset.sort;
-                    
-                    // Get current sort state from URL
-                    const params = new URLSearchParams(window.location.search);
-                    const currSortBy = params.get('sort_by');
-                    const currSortDir = params.get('sort_dir');
-                    
-                    // Determine new sort state
-                    const fieldName = sortField === 'date' ? 'data' : 'valor';
-                    let newSortBy = '';
-                    let newSortDir = '';
-                    
-                    if (currSortBy === fieldName) {
-                        // Same field: asc -> desc -> none
-                        if (currSortDir === 'crescente') {
-                            newSortBy = fieldName;
-                            newSortDir = 'decrescente';
-                        } else if (currSortDir === 'decrescente') {
-                            newSortBy = '';
-                            newSortDir = '';
-                        } else {
-                            newSortBy = fieldName;
-                            newSortDir = 'crescente';
-                        }
-                    } else {
-                        // Different field: start with asc
-                        newSortBy = fieldName;
-                        newSortDir = 'crescente';
-                    }
-                    
-                    // Update hidden inputs
-                    let sortByInput = form.querySelector('input[name="sort_by"]');
-                    let sortDirInput = form.querySelector('input[name="sort_dir"]');
-                    
-                    if (!sortByInput) {
-                        sortByInput = document.createElement('input');
-                        sortByInput.type = 'hidden';
-                        sortByInput.name = 'sort_by';
-                        form.appendChild(sortByInput);
-                    }
-                    
-                    if (!sortDirInput) {
-                        sortDirInput = document.createElement('input');
-                        sortDirInput.type = 'hidden';
-                        sortDirInput.name = 'sort_dir';
-                        form.appendChild(sortDirInput);
-                    }
-                    
-                    sortByInput.value = newSortBy;
-                    sortDirInput.value = newSortDir;
-                    
-                    // Submit form
-                    form.submit();
+                    e.preventDefault();
+                    setSortState(this.dataset.sort);
                 });
             });
+
+            syncSortToUrl();
         }
     </script>
 </body>

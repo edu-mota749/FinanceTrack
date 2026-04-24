@@ -614,6 +614,21 @@ def build_dashboard_data(user, period="month", selected_month=None, selected_yea
 
 
 def build_transaction_query(user):
+    def parse_filter_value(raw_value):
+        value = (raw_value or "").strip()
+        if not value:
+            return None
+
+        value = value.replace("R$", "").replace(" ", "")
+
+        if "," in value:
+            value = value.replace(".", "").replace(",", ".")
+
+        try:
+            return float(value)
+        except ValueError:
+            return None
+
     query = Transaction.query.filter(Transaction.user_id == user.id)
     start_date = (request.args.get("start_date") or "").strip()
     end_date = (request.args.get("end_date") or "").strip()
@@ -633,16 +648,20 @@ def build_transaction_query(user):
         query = query.filter(Transaction.category_id.in_(valid_category_ids))
     if tipo in ["income", "expense"]:
         query = query.filter(Transaction.type == tipo)
+
+    signed_amount = case(
+        (Transaction.type == "expense", -Transaction.amount),
+        else_=Transaction.amount,
+    )
+
     if min_value:
-        try:
-            query = query.filter(Transaction.amount >= float(min_value.replace(',', '.')))
-        except ValueError:
-            pass
+        parsed_min = parse_filter_value(min_value)
+        if parsed_min is not None:
+            query = query.filter(signed_amount >= parsed_min)
     if max_value:
-        try:
-            query = query.filter(Transaction.amount <= float(max_value.replace(',', '.')))
-        except ValueError:
-            pass
+        parsed_max = parse_filter_value(max_value)
+        if parsed_max is not None:
+            query = query.filter(signed_amount <= parsed_max)
 
     # Apply sorting
     if sort_by and sort_dir:
@@ -652,10 +671,6 @@ def build_transaction_query(user):
             elif sort_dir == "decrescente":
                 query = query.order_by(Transaction.date.desc())
         elif sort_by == "valor":
-            signed_amount = case(
-                (Transaction.type == "expense", -Transaction.amount),
-                else_=Transaction.amount,
-            )
             if sort_dir == "crescente":
                 query = query.order_by(signed_amount.asc())
             elif sort_dir == "decrescente":

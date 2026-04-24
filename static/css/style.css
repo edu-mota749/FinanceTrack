@@ -678,6 +678,34 @@ input:focus {
     gap: 18px;
 }
 
+.transactions-filter-grid {
+    display: grid;
+    grid-template-columns: 1.7fr 1fr;
+    column-gap: 26px;
+    row-gap: 14px;
+    align-items: start;
+}
+
+.transactions-filter-column {
+    display: contents;
+}
+
+.transactions-filter-slot {
+    display: grid;
+    gap: 8px;
+}
+
+.transactions-filter-left .transactions-filter-slot:nth-child(1) { order: 1; }
+.transactions-filter-right .transactions-filter-slot:nth-child(1) { order: 2; }
+.transactions-filter-left .transactions-filter-slot:nth-child(2) { order: 3; }
+.transactions-filter-right .transactions-filter-slot:nth-child(2) { order: 4; }
+.transactions-filter-left .transactions-filter-slot:nth-child(3) { order: 5; }
+.transactions-filter-right .transactions-filter-slot:nth-child(3) { order: 6; }
+
+.transactions-filter-actions-slot {
+    align-content: end;
+}
+
 .filter-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -916,6 +944,51 @@ input:focus {
     color: var(--text);
 }
 
+.manual-date-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.manual-date-wrapper .manual-date-text {
+    padding-right: 44px;
+}
+
+.manual-date-picker-btn {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #6c7a99;
+    padding: 4px;
+}
+
+.manual-date-picker-btn svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    display: block;
+}
+
+.manual-date-picker-btn:hover {
+    color: #0f7d85;
+}
+
+.manual-date-native {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    left: -9999px;
+}
+
 .text-subtle {
     color: #7a8ba9;
     font-size: 14px;
@@ -987,6 +1060,26 @@ input:focus {
     gap: 16px;
     align-items: center;
     margin-top: 8px;
+}
+
+.transactions-filter-grid .filter-actions {
+    margin-top: 0;
+}
+
+.transaction-type-row {
+    margin-top: 2px;
+    gap: 10px;
+}
+
+.transaction-type-row .radio-option {
+    min-height: 42px;
+    max-height: 46px;
+    padding: 8px 8px;
+    border-radius: 12px;
+}
+
+.transaction-type-row .radio-label {
+    font-size: 12px;
 }
 
 .secondary-button {
