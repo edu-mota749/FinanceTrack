@@ -82,7 +82,7 @@
                                         </svg>
                                     </span>
                                     <div class="category-pills" id="categoryPills"></div>
-                                    <input type="text" class="category-search" id="categorySearch" placeholder="Buscar categoria...">
+                                    <input type="text" class="category-search" id="categorySearch" placeholder="Buscar categoria..." autocomplete="off" spellcheck="false" onfocus="openCategoryDropdown()" oninput="filterCategoryOptions(this.value)" onkeyup="filterCategoryOptions(this.value)">
                                 </div>
                                 <div class="category-dropdown" id="categoryDropdown">
                                     {% for category in categories %}
@@ -267,7 +267,7 @@
             form.submit();
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        function bootTransactionsPage() {
             const dateRangeInput = document.getElementById('dateRangeInput');
             const start = document.querySelector("input[name='start_date']");
             const end = document.querySelector("input[name='end_date']");
@@ -332,7 +332,13 @@
             
             // Initialize table sort
             initTableSort();
-        });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bootTransactionsPage);
+        } else {
+            bootTransactionsPage();
+        }
 
         function openAddModal() {
             const modal = document.getElementById('transactionModal');
@@ -400,13 +406,54 @@
             const dropdown = document.getElementById('categoryDropdown');
             const searchInput = document.getElementById('categorySearch');
             const pillsContainer = document.getElementById('categoryPills');
-            const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+            const checkboxes = Array.from(dropdown.querySelectorAll('input[type="checkbox"]'));
+            const options = Array.from(dropdown.querySelectorAll('.category-option'));
+
+            window.__categoryFilterState = {
+                filterInput,
+                dropdown,
+                searchInput,
+                pillsContainer,
+                checkboxes,
+                options,
+            };
+
+            window.filterCategoryOptions = function(query = '') {
+                const state = window.__categoryFilterState;
+                if (!state) return false;
+
+                const normalizedQuery = String(query || '').trim().toLowerCase();
+                let hasVisibleOption = false;
+
+                state.options.forEach((option) => {
+                    const text = option.textContent.toLowerCase();
+                    const matches = !normalizedQuery || text.includes(normalizedQuery);
+                    option.classList.toggle('hidden', !matches);
+                    if (matches) {
+                        hasVisibleOption = true;
+                    }
+                });
+
+                return hasVisibleOption;
+            };
+
+            window.openCategoryDropdown = function() {
+                const state = window.__categoryFilterState;
+                if (!state) return;
+
+                state.dropdown.classList.add('active');
+                window.filterCategoryOptions(state.searchInput.value);
+            };
+
+            function openDropdown() {
+                window.openCategoryDropdown();
+            }
 
             // Open dropdown when clicking on the icon
             document.querySelectorAll('.category-filter-icon').forEach((icon) => {
                 icon.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    dropdown.classList.add('active');
+                    openDropdown();
                     searchInput.focus();
                 });
             });
@@ -416,19 +463,22 @@
                 if (e.target === searchInput || e.target.closest('.category-filter-icon')) {
                     return;
                 }
-                dropdown.classList.toggle('active');
+                openDropdown();
                 searchInput.focus();
             });
 
-            // Search filter
-            searchInput.addEventListener('input', (e) => {
-                dropdown.classList.add('active');
-                const query = e.target.value.toLowerCase();
-                dropdown.querySelectorAll('.category-option').forEach((option) => {
-                    const text = option.textContent.toLowerCase();
-                    option.style.display = text.includes(query) ? '' : 'none';
-                });
+            searchInput.addEventListener('focus', () => {
+                openDropdown();
             });
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    openDropdown();
+                }
+            });
+
+            window.filterCategoryOptions(searchInput.value);
 
             // Update pills when checkbox changes
             checkboxes.forEach((checkbox) => {
@@ -441,6 +491,16 @@
                     dropdown.classList.remove('active');
                 }
             });
+
+            searchInput.addEventListener('blur', () => {
+                window.setTimeout(() => {
+                    if (!filterInput.matches(':focus-within')) {
+                        dropdown.classList.remove('active');
+                    }
+                }, 120);
+            });
+
+            window.filterCategoryOptions(searchInput.value);
 
             // Initial pill rendering
             updatePills();

@@ -14,3 +14,16 @@ cd C:\FinanceTrack
 .\.venv\Scripts\Activate.ps1
 
 python app.py
+
+
+
+demo@financetrack.local
+password123
+
+parou de funcionar checkbox ao digitar
+Melhorar pdf / Relatórios
+Enviar pdf automático / Relatorios
+colcoar esqueceu senha / Login
+Colcoar confirmaçãood e email / Cadastro
+Grafico de linha colocar negativo para baixo
+

@@ -28,6 +28,33 @@
                 <div>Olá, <strong>{{ user_name }}</strong></div>
             </header>
 
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <section class="filter-card report-form-card">
+                <div class="card-title">GERAR RELATÓRIO PERSONALIZADO</div>
+                <form action="{{ url_for('baixar_relatorio') }}" method="post">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>Data inicial</label>
+                            <input class="small-input" type="date" name="start_date" required>
+                        </div>
+                        <div class="filter-group">
+                            <label>Data final</label>
+                            <input class="small-input" type="date" name="end_date" required>
+                        </div>
+                    </div>
+                    <div style="margin-top: 18px; display: flex; justify-content: flex-end;">
+                        <button type="submit" class="primary-button" style="width: min(360px, 100%);">Baixar PDF</button>
+                    </div>
+                </form>
+            </section>
+
             <section class="reports-section">
                 <div class="section-header">
                     <h2>RELATÓRIOS RECENTES</h2>
@@ -50,13 +77,23 @@
                                     <p>{{ rel.subtitle }}</p>
                                 </div>
                             </div>
-                            <a class="report-download" href="{{ url_for('download_relatorio_mes', year=rel.year, month=rel.month) }}">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M12 3V15" stroke="#0F2148" stroke-width="1.8" stroke-linecap="round"/>
-                                    <path d="M8 11L12 15L16 11" stroke="#0F2148" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M6 19H18" stroke="#0F2148" stroke-width="1.8" stroke-linecap="round"/>
-                                </svg>
-                            </a>
+                            <div class="report-actions">
+                                <form method="post" action="{{ url_for('enviar_relatorio', relatorio_id=rel.relatorio_id) if rel.relatorio_id else url_for('enviar_relatorio_mes', year=rel.year, month=rel.month) }}">
+                                    <button type="submit" class="report-download report-email" title="Enviar por e-mail" aria-label="Enviar por e-mail">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M4 7.5L12 13L20 7.5" stroke="#0F2148" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M5 6H19C19.55 6 20 6.45 20 7V17C20 17.55 19.55 18 19 18H5C4.45 18 4 17.55 4 17V7C4 6.45 4.45 6 5 6Z" stroke="#0F2148" stroke-width="1.8" stroke-linejoin="round"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                                <a class="report-download" href="{{ url_for('download_relatorio', relatorio_id=rel.relatorio_id) if rel.relatorio_id else url_for('download_relatorio_mes', year=rel.year, month=rel.month) }}" title="Baixar PDF" aria-label="Baixar PDF">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 3V15" stroke="#0F2148" stroke-width="1.8" stroke-linecap="round"/>
+                                        <path d="M8 11L12 15L16 11" stroke="#0F2148" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M6 19H18" stroke="#0F2148" stroke-width="1.8" stroke-linecap="round"/>
+                                    </svg>
+                                </a>
+                            </div>
                         </div>
                         {% endfor %}
                     {% else %}

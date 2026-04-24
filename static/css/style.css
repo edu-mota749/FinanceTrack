@@ -589,9 +589,29 @@ input:focus {
     transition: background 0.2s ease, transform 0.2s ease;
 }
 
+.report-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.report-actions form {
+    margin: 0;
+}
+
+.report-download.report-email {
+    border: 1px solid #cfe3ff;
+    background: #eff6ff;
+    cursor: pointer;
+}
+
 .report-download:hover {
     background: #eef4fb;
     transform: translateY(-1px);
+}
+
+.report-download.report-email:hover {
+    background: #dbeafe;
 }
 
 .report-note {
@@ -805,6 +825,10 @@ input:focus {
     font-size: 12px;
     width: 100%;
     box-sizing: border-box;
+}
+
+.category-option.hidden {
+    display: none !important;
 }
 
 .category-option:last-child {
