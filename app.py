@@ -1232,9 +1232,14 @@ def ensure_database_bootstrapped():
 
 @app.before_request
 def bootstrap_database_for_protected_routes():
-    if request.endpoint in {"home", "auth", "static"} and request.method == "GET":
+    if request.endpoint in {"home", "auth", "static", "health"} and request.method in {"GET", "HEAD"}:
         return
     ensure_database_bootstrapped()
+
+
+@app.route("/health")
+def health():
+    return {"status": "ok"}, 200
 
 
 if __name__ == "__main__":
