@@ -1219,7 +1219,22 @@ def initialize_database():
             app.logger.warning("Continuing startup without database bootstrap after retries.")
 
 
-initialize_database()
+_database_bootstrapped = False
+
+
+def ensure_database_bootstrapped():
+    global _database_bootstrapped
+    if _database_bootstrapped:
+        return
+    initialize_database()
+    _database_bootstrapped = True
+
+
+@app.before_request
+def bootstrap_database_for_protected_routes():
+    if request.endpoint in {"home", "auth", "static"} and request.method == "GET":
+        return
+    ensure_database_bootstrapped()
 
 
 if __name__ == "__main__":
