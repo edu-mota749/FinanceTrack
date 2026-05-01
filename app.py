@@ -21,14 +21,20 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "replace-with-a-secure-key")
 
-db_user = os.getenv("DB_USER", "root")
-db_password = quote_plus(os.getenv("DB_PASSWORD", ""))
-db_host = os.getenv("DB_HOST", "127.0.0.1")
-db_port = os.getenv("DB_PORT", "3306")
-db_name = os.getenv("DB_NAME", "financetrack")
-app.config[
-    "SQLALCHEMY_DATABASE_URI"
-] = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    if database_url.startswith("mysql://"):
+        database_url = database_url.replace("mysql://", "mysql+mysqlconnector://", 1)
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+else:
+    db_user = os.getenv("DB_USER") or os.getenv("MYSQLUSER", "root")
+    db_password = quote_plus(os.getenv("DB_PASSWORD") or os.getenv("MYSQLPASSWORD", ""))
+    db_host = os.getenv("DB_HOST") or os.getenv("MYSQLHOST", "127.0.0.1")
+    db_port = os.getenv("DB_PORT") or os.getenv("MYSQLPORT", "3306")
+    db_name = os.getenv("DB_NAME") or os.getenv("MYSQLDATABASE", "financetrack")
+    app.config[
+        "SQLALCHEMY_DATABASE_URI"
+    ] = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
@@ -1194,12 +1200,26 @@ def job_enviar_relatorios_mensais():
 scheduler = BackgroundScheduler()
 
 
-with app.app_context():
-    db.create_all()
-    ensure_category_schema()
-    user = get_default_user()
-    create_default_categories()
-    cleanup_test_categories()
+def initialize_database():
+    with app.app_context():
+        last_exception = None
+        for _ in range(3):
+            try:
+                db.create_all()
+                ensure_category_schema()
+                get_default_user()
+                create_default_categories()
+                cleanup_test_categories()
+                return
+            except Exception as exc:
+                last_exception = exc
+                app.logger.exception("Database initialization failed: %s", exc)
+                db.session.rollback()
+        if last_exception is not None:
+            app.logger.warning("Continuing startup without database bootstrap after retries.")
+
+
+initialize_database()
 
 
 if __name__ == "__main__":
