@@ -1220,6 +1220,7 @@ def initialize_database():
 
 
 _database_bootstrapped = False
+disable_db_bootstrap = os.getenv("DISABLE_DB_BOOTSTRAP", "true").lower() == "true"
 
 
 def ensure_database_bootstrapped():
@@ -1232,6 +1233,8 @@ def ensure_database_bootstrapped():
 
 @app.before_request
 def bootstrap_database_for_protected_routes():
+    if disable_db_bootstrap:
+        return
     if request.endpoint in {"home", "auth", "static", "health"} and request.method in {"GET", "HEAD"}:
         return
     ensure_database_bootstrapped()
@@ -1240,6 +1243,11 @@ def bootstrap_database_for_protected_routes():
 @app.route("/health")
 def health():
     return {"status": "ok"}, 200
+
+
+@app.route("/favicon.ico")
+def favicon():
+    return "", 204
 
 
 if __name__ == "__main__":
