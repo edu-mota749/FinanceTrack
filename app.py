@@ -18,6 +18,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 
+print("FinanceTrack app module imported")
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "replace-with-a-secure-key")
 
@@ -1065,6 +1067,7 @@ def configuracoes():
 
 @app.route("/")
 def home():
+    print("FinanceTrack root route hit")
     if "user_id" in session:
         return redirect(url_for("dashboard"))
     return render_template("auth.html", active_tab="login")
@@ -1242,6 +1245,7 @@ def bootstrap_database_for_protected_routes():
 
 @app.route("/health")
 def health():
+    print("FinanceTrack health route hit")
     return {"status": "ok"}, 200
 
 
