@@ -1,1 +1,1 @@
-web: gunicorn app:app -b 0.0.0.0:$PORT --access-logfile - --error-logfile - --capture-output --log-level debug
+web: python server.py
