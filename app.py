@@ -1207,4 +1207,8 @@ if __name__ == "__main__":
     if not debug_mode or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         scheduler.add_job(job_enviar_relatorios_mensais, trigger="cron", hour=23, minute=59)
         scheduler.start()
-    app.run(debug=debug_mode)
+    app.run(
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "5000")),
+        debug=debug_mode,
+    )
