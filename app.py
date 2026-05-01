@@ -1067,7 +1067,7 @@ def configuracoes():
 def home():
     if "user_id" in session:
         return redirect(url_for("dashboard"))
-    return redirect(url_for("auth"))
+    return render_template("auth.html", active_tab="login")
 
 
 @app.route("/auth", methods=["GET", "POST"])
