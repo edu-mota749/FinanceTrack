@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FinanceTrack | Transações</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="{{ url_for('static', filename='js/date-inputs.js') }}"></script>
 </head>
 <body>
     <div class="page-shell dashboard-shell">
@@ -197,7 +196,10 @@
                 <input class="modal-input" type="text" name="new_category" id="newCategoryName" placeholder="Criar nova categoria">
 
                 <label class="modal-label">Valor:</label>
-                <input class="modal-input" type="text" name="amount" id="transactionAmount" placeholder="R$" required>
+                <div class="currency-input modal-currency-input">
+                    <span class="input-prefix" id="transactionAmountPrefix">R$</span>
+                    <input class="modal-input currency-field" type="text" name="amount" id="transactionAmount" placeholder="0,00" required>
+                </div>
 
                 <label class="modal-label">Descrição:</label>
                 <input class="modal-input" type="text" name="description" id="transactionDescription" placeholder="Descrição da transação">
@@ -244,6 +246,69 @@
                 const input = option.querySelector('input[type="radio"]');
                 option.classList.toggle('active', input && input.checked);
             });
+        }
+
+        function updateTransactionAmountPrefix() {
+            const prefix = document.getElementById('transactionAmountPrefix');
+            const expenseRadio = document.getElementById('transactionTypeExpense');
+
+            if (!prefix || !expenseRadio) {
+                return;
+            }
+
+            prefix.textContent = expenseRadio.checked ? '- R$' : 'R$';
+        }
+
+        function syncCategoryInputsState() {
+            const categorySelect = document.getElementById('transactionCategory');
+            const newCategoryName = document.getElementById('newCategoryName');
+
+            if (!categorySelect || !newCategoryName) {
+                return;
+            }
+
+            const selectedCategory = categorySelect.value.trim();
+            const newCategory = newCategoryName.value.trim();
+
+            if (selectedCategory) {
+                newCategoryName.disabled = true;
+                categorySelect.disabled = false;
+                return;
+            }
+
+            if (newCategory) {
+                categorySelect.disabled = true;
+                newCategoryName.disabled = false;
+                return;
+            }
+
+            categorySelect.disabled = false;
+            newCategoryName.disabled = false;
+        }
+
+        function bindCategoryInputsState() {
+            const categorySelect = document.getElementById('transactionCategory');
+            const newCategoryName = document.getElementById('newCategoryName');
+
+            if (!categorySelect || !newCategoryName) {
+                return;
+            }
+
+            categorySelect.addEventListener('change', () => {
+                if (categorySelect.value.trim()) {
+                    newCategoryName.value = '';
+                }
+                syncCategoryInputsState();
+            });
+
+            newCategoryName.addEventListener('input', () => {
+                if (newCategoryName.value.trim()) {
+                    categorySelect.value = '';
+                }
+                syncCategoryInputsState();
+            });
+
+            syncCategoryInputsState();
         }
 
         function setDateRange(range, shouldSubmit = true) {
@@ -313,9 +378,11 @@
             updateDateRangeButtons();
 
             updateTransactionTypeButtons();
+            updateTransactionAmountPrefix();
 
             document.querySelectorAll('.radio-option input[type="radio"]').forEach((input) => {
                 input.addEventListener('change', updateTransactionTypeButtons);
+                input.addEventListener('change', updateTransactionAmountPrefix);
             });
 
             [start, end].forEach((input) => {
@@ -344,6 +411,8 @@
                 });
             }
 
+            bindCategoryInputsState();
+
             // Initialize category filter
             initCategoryFilter();
             
@@ -370,6 +439,8 @@
             document.getElementById('transactionDescription').value = '';
             document.getElementById('transactionTypeIncome').checked = true;
             document.getElementById('deleteTransactionButton').classList.add('hidden');
+            syncCategoryInputsState();
+            updateTransactionAmountPrefix();
             modal.classList.remove('hidden');
         }
 
@@ -393,6 +464,8 @@
             document.getElementById('deleteTransactionButton').classList.remove('hidden');
             document.getElementById('deleteTransactionButton').dataset.id = id;
             document.getElementById('deleteTransactionForm').action = `/transacoes/excluir/${id}`;
+            syncCategoryInputsState();
+            updateTransactionAmountPrefix();
             modal.classList.remove('hidden');
         }
 

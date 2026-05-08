@@ -1,6 +1,7 @@
 import calendar
 import io
 import os
+import secrets
 import smtplib
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -15,7 +16,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
 from fpdf import FPDF
 from werkzeug.security import generate_password_hash, check_password_hash
-
 load_dotenv()
 
 app = Flask(__name__)
@@ -382,6 +382,68 @@ def enviar_relatorio_email(user, period_start, period_end, transactions=None, ar
         return True, f"Relatório enviado com sucesso para {user.email}."
     except Exception as exc:
         return False, f"Erro ao enviar relatório por e-mail: {exc}"
+
+
+def _generate_password_reset_code():
+    return f"{secrets.randbelow(1000000):06d}"
+
+
+def _clear_password_reset_session():
+    for key in (
+        "password_reset_email",
+        "password_reset_code",
+        "password_reset_expires_at",
+        "password_reset_step",
+        "password_reset_attempts",
+    ):
+        session.pop(key, None)
+
+
+def _store_password_reset_session(email, code):
+    session["password_reset_email"] = email
+    session["password_reset_code"] = code
+    session["password_reset_expires_at"] = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
+    session["password_reset_step"] = "verify"
+    session["password_reset_attempts"] = 0
+
+
+def _password_reset_session_is_valid():
+    expires_at_raw = session.get("password_reset_expires_at")
+    if not expires_at_raw:
+        return False
+
+    try:
+        expires_at = datetime.fromisoformat(expires_at_raw)
+    except ValueError:
+        return False
+
+    return datetime.utcnow() <= expires_at
+
+
+def enviar_codigo_recuperacao_email(user, codigo):
+    if not email_user or not email_password:
+        return False, "EMAIL_USER e EMAIL_PASSWORD não estão configurados no .env."
+
+    try:
+        message = EmailMessage()
+        message["From"] = email_user
+        message["To"] = user.email
+        message["Subject"] = "FinanceTrack - Código de verificação para redefinição de senha"
+        message.set_content(
+            f"Olá {user.name},\n\n"
+            "Recebemos uma solicitação para redefinir sua senha no FinanceTrack.\n"
+            f"Seu código de verificação é: {codigo}\n\n"
+            "Este código expira em 15 minutos. Se você não solicitou essa redefinição, ignore este e-mail.\n\n"
+            "Atenciosamente,\nFinanceTrack"
+        )
+
+        with smtplib.SMTP_SSL(email_smtp_host, email_smtp_port) as smtp:
+            smtp.login(email_user, email_password)
+            smtp.send_message(message)
+
+        return True, f"Código de verificação enviado para {user.email}."
+    except Exception as exc:
+        return False, f"Erro ao enviar código de verificação por e-mail: {exc}"
 
 
 def get_monthly_report_cards(user):
@@ -886,10 +948,6 @@ def download_relatorio_mes(year, month):
         flash("Nenhuma transação encontrada para este mês.", "error")
         return redirect(url_for("relatorios"))
 
-    incomes_total = sum(tx.amount for tx in transactions if tx.type == "income")
-    expenses_total = sum(tx.amount for tx in transactions if tx.type == "expense")
-    balance_total = incomes_total - expenses_total
-
     arquivo_nome = _normalize_report_filename(user, period_start)
     _store_monthly_report(user, period_start, period_end, transactions, arquivo_nome)
     _, pdf_bytes = gerar_pdf_relatorio(user, transactions, period_start, period_end, arquivo_nome)
@@ -961,10 +1019,6 @@ def baixar_relatorio():
         .order_by(Transaction.date)
         .all()
     )
-
-    incomes_total = sum(tx.amount for tx in transactions if tx.type == "income")
-    expenses_total = sum(tx.amount for tx in transactions if tx.type == "expense")
-    balance_total = incomes_total - expenses_total
 
     arquivo_nome = _normalize_report_filename(user, period_start)
     _store_monthly_report(user, period_start, period_end, transactions, arquivo_nome)
@@ -1070,6 +1124,9 @@ def auth():
         return redirect(url_for("dashboard"))
 
     active_tab = request.args.get("tab", "login")
+    reset_step = session.get("password_reset_step")
+    if active_tab == "login" and reset_step in {"verify", "reset"}:
+        active_tab = reset_step
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -1084,11 +1141,12 @@ def auth():
                 if auth_record is None or not check_password_hash(auth_record.senha_hash, password):
                     flash("E-mail ou senha incorretos.", "error")
                 else:
+                    _clear_password_reset_session()
                     session["user_id"] = auth_record.usuario_id
                     session["user_name"] = auth_record.usuario.name
                     return redirect(url_for("dashboard"))
 
-        if action == "register":
+        elif action == "register":
             name = request.form.get("name", "").strip()
             email = request.form.get("email", "").strip()
             password = request.form.get("password", "").strip()
@@ -1115,8 +1173,93 @@ def auth():
 
                     session["user_id"] = user.id
                     session["user_name"] = user.name
+                    _clear_password_reset_session()
                     flash("Conta criada com sucesso.", "success")
                     return redirect(url_for("dashboard"))
+
+        elif action == "request_password_reset":
+            email = request.form.get("email", "").strip()
+            if not email:
+                flash("Informe seu e-mail para continuar.", "error")
+                active_tab = "forgot"
+            else:
+                auth_record = Autenticacao.query.filter_by(email=email).first()
+                if auth_record is None or auth_record.usuario is None:
+                    flash("Se o e-mail existir em nossa base, você receberá um código de verificação.", "success")
+                    return redirect(url_for("auth", tab="login"))
+
+                codigo = _generate_password_reset_code()
+                sent, message = enviar_codigo_recuperacao_email(auth_record.usuario, codigo)
+                if not sent:
+                    flash(message, "error")
+                    active_tab = "forgot"
+                else:
+                    _store_password_reset_session(auth_record.email, codigo)
+                    flash("Enviamos um código de verificação para seu e-mail.", "success")
+                    return redirect(url_for("auth", tab="verify"))
+
+        elif action == "verify_password_reset_code":
+            code = request.form.get("code", "").strip()
+            if not session.get("password_reset_email"):
+                flash("Solicite um novo código para continuar.", "error")
+                _clear_password_reset_session()
+                return redirect(url_for("auth", tab="forgot"))
+
+            if not _password_reset_session_is_valid():
+                flash("O código expirou. Solicite um novo código.", "error")
+                _clear_password_reset_session()
+                return redirect(url_for("auth", tab="forgot"))
+
+            if code != session.get("password_reset_code"):
+                session["password_reset_attempts"] = int(session.get("password_reset_attempts", 0)) + 1
+                if session["password_reset_attempts"] >= 5:
+                    flash("Muitas tentativas incorretas. Solicite um novo código.", "error")
+                    _clear_password_reset_session()
+                    return redirect(url_for("auth", tab="forgot"))
+
+                flash("Código inválido. Tente novamente.", "error")
+                active_tab = "verify"
+            else:
+                session["password_reset_step"] = "reset"
+                flash("Código verificado com sucesso. Agora defina sua nova senha.", "success")
+                return redirect(url_for("auth", tab="reset"))
+
+        elif action == "reset_password":
+            new_password = request.form.get("new_password", "").strip()
+            confirm_password = request.form.get("confirm_password", "").strip()
+            email = session.get("password_reset_email")
+
+            if not email:
+                flash("Solicite um novo código para continuar.", "error")
+                _clear_password_reset_session()
+                return redirect(url_for("auth", tab="forgot"))
+
+            if not _password_reset_session_is_valid():
+                flash("O código expirou. Solicite um novo código.", "error")
+                _clear_password_reset_session()
+                return redirect(url_for("auth", tab="forgot"))
+
+            if not new_password or not confirm_password:
+                flash("Preencha os dois campos de senha.", "error")
+                active_tab = "reset"
+            elif new_password != confirm_password:
+                flash("As senhas não coincidem.", "error")
+                active_tab = "reset"
+            elif len(new_password) < 6:
+                flash("A nova senha deve ter no mínimo 6 caracteres.", "error")
+                active_tab = "reset"
+            else:
+                auth_record = Autenticacao.query.filter_by(email=email).first()
+                if auth_record is None:
+                    flash("Não foi possível localizar sua conta. Solicite um novo código.", "error")
+                    _clear_password_reset_session()
+                    return redirect(url_for("auth", tab="forgot"))
+
+                auth_record.senha_hash = generate_password_hash(new_password)
+                db.session.commit()
+                _clear_password_reset_session()
+                flash("Senha alterada com sucesso. Faça login novamente.", "success")
+                return redirect(url_for("auth", tab="login"))
 
     return render_template("auth.html", active_tab=active_tab)
 
@@ -1197,7 +1340,7 @@ scheduler = BackgroundScheduler()
 with app.app_context():
     db.create_all()
     ensure_category_schema()
-    user = get_default_user()
+    get_default_user()
     create_default_categories()
     cleanup_test_categories()
 

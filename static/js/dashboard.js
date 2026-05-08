@@ -1,24 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const loginSection = document.getElementById("login-section");
-    const registerSection = document.getElementById("register-section");
-    const tabButtons = document.querySelectorAll(".tab-button");
-
-    if (loginSection && registerSection && tabButtons.length) {
-        function setActiveTab(tab) {
-            tabButtons.forEach((button) => {
-                button.classList.toggle("active", button.dataset.target === tab);
-            });
-            loginSection.classList.toggle("active", tab === "login");
-            registerSection.classList.toggle("active", tab === "register");
-        }
-
-        tabButtons.forEach((button) => {
-            button.addEventListener("click", () => setActiveTab(button.dataset.target));
-        });
-
-        setActiveTab(window.selectedTab || "login");
-    }
-
     const periodSelect = document.getElementById("dashboard-period");
     const monthControl = document.getElementById("month-control");
     const yearControl = document.getElementById("year-control");
@@ -29,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
             monthControl.style.display = value === "month" ? "grid" : "none";
             yearControl.style.display = value === "year" ? "grid" : "none";
         };
+
         periodSelect.addEventListener("change", updateFilterVisibility);
         updateFilterVisibility();
     }
@@ -59,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     },
                     {
                         label: "Despesas",
-                        data: data.expenses,
+                        data: data.expenses.map((value) => -value),
                         borderColor: "#d63447",
                         backgroundColor: isGeneral ? "rgba(214, 52, 71, 0.8)" : "rgba(214, 52, 71, 0.08)",
                         fill: !isGeneral,
@@ -71,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
             options: {
                 responsive: true,
                 plugins: {
-                    legend: { display: true, position: "top" },
+                    legend: { display: true, position: "bottom" },
                 },
                 scales: {
                     x: { grid: { display: false } },
