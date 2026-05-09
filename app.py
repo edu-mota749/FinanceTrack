@@ -3,6 +3,7 @@ import io
 import os
 import secrets
 import smtplib
+from threading import Lock
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from functools import wraps
@@ -36,6 +37,8 @@ email_user = os.getenv("EMAIL_USER")
 email_password = os.getenv("EMAIL_PASSWORD")
 email_smtp_host = os.getenv("EMAIL_SMTP_HOST", "smtp.gmail.com")
 email_smtp_port = int(os.getenv("EMAIL_SMTP_PORT", "465"))
+database_init_lock = Lock()
+database_initialized = False
 
 
 def get_month_period(year, month):
@@ -515,6 +518,24 @@ def cleanup_test_categories():
         db.session.commit()
     except Exception:
         pass
+
+
+def initialize_database():
+    global database_initialized
+
+    if database_initialized:
+        return
+
+    with database_init_lock:
+        if database_initialized:
+            return
+
+        db.create_all()
+        ensure_category_schema()
+        get_default_user()
+        create_default_categories()
+        cleanup_test_categories()
+        database_initialized = True
 
 
 
@@ -1337,12 +1358,9 @@ def job_enviar_relatorios_mensais():
 scheduler = BackgroundScheduler()
 
 
-with app.app_context():
-    db.create_all()
-    ensure_category_schema()
-    get_default_user()
-    create_default_categories()
-    cleanup_test_categories()
+@app.before_request
+def ensure_database_ready():
+    initialize_database()
 
 
 if __name__ == "__main__":
@@ -1350,4 +1368,6 @@ if __name__ == "__main__":
     if not debug_mode or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         scheduler.add_job(job_enviar_relatorios_mensais, trigger="cron", hour=23, minute=59)
         scheduler.start()
+    with app.app_context():
+        initialize_database()
     app.run(debug=debug_mode)
