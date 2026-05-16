@@ -24,37 +24,30 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "replace-with-a-secure-key")
 
 # Database URL selection: Vercel env > Local MySQL > SQLite fallback
 database_url = os.getenv("DATABASE_URL")
+vercel_env = os.getenv("VERCEL_ENV")
+vercel_var = os.getenv("VERCEL")
+tmpdir = os.getenv("TMPDIR")
 
 # Check if running on Vercel: VERCEL_ENV, VERCEL var, or TMPDIR env (always set in Vercel)
-is_vercel = bool(os.getenv("VERCEL_ENV") or os.getenv("VERCEL") or (os.getenv("TMPDIR") and "/tmp" in os.getenv("TMPDIR", "")))
+is_vercel = bool(vercel_env or vercel_var or (tmpdir and "/tmp" in tmpdir))
 
-# Debug logging
-import sys
-print(f"[DB CONFIG] DATABASE_URL: {database_url[:50] if database_url else 'NOT SET'}...", file=sys.stderr, flush=True)
-print(f"[DB CONFIG] VERCEL_ENV: {os.getenv('VERCEL_ENV')}", file=sys.stderr, flush=True)
-print(f"[DB CONFIG] VERCEL: {os.getenv('VERCEL')}", file=sys.stderr, flush=True)
-print(f"[DB CONFIG] TMPDIR: {os.getenv('TMPDIR')}", file=sys.stderr, flush=True)
-print(f"[DB CONFIG] is_vercel: {is_vercel}", file=sys.stderr, flush=True)
+# Force debug info to appear in logs
+raise Exception(f"[DEBUG] DATABASE_URL={database_url is not None}, VERCEL_ENV={vercel_env}, VERCEL={vercel_var}, TMPDIR={tmpdir}, is_vercel={is_vercel}")
 
 if database_url:
     # Use Postgres on Vercel if DATABASE_URL is set
-    print(f"[DB CONFIG] USING DATABASE_URL: {database_url[:60]}...", file=sys.stderr, flush=True)
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 elif is_vercel:
     # On Vercel, use SQLite (works offline, no network required)
-    print(f"[DB CONFIG] USING SQLite (Vercel detected)", file=sys.stderr, flush=True)
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/financetrack.db"
 else:
     # Local development: use MySQL
-    print(f"[DB CONFIG] USING MySQL (local development)", file=sys.stderr, flush=True)
     db_user = os.getenv("DB_USER", "root")
     db_password = quote_plus(os.getenv("DB_PASSWORD", ""))
     db_host = os.getenv("DB_HOST", "127.0.0.1")
     db_port = os.getenv("DB_PORT", "3306")
     db_name = os.getenv("DB_NAME", "financetrack")
     app.config["SQLALCHEMY_DATABASE_URI"] = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-
-print(f"[DB CONFIG] Final URI: {app.config['SQLALCHEMY_DATABASE_URI'][:80]}...", file=sys.stderr, flush=True)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
