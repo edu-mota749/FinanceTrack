@@ -31,8 +31,12 @@ if not database_url:
     db_name = os.getenv("DB_NAME", "financetrack")
     if os.getenv("VERCEL"):
         database_url = "sqlite:////tmp/financetrack.db"
+        print("[DEBUG] No DATABASE_URL; using SQLite fallback in Vercel", flush=True)
     else:
         database_url = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+        print(f"[DEBUG] No DATABASE_URL; using MySQL local: {db_host}:{db_port}", flush=True)
+else:
+    print(f"[DEBUG] Using DATABASE_URL: {database_url[:50]}...", flush=True)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
