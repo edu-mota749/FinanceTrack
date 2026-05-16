@@ -28,8 +28,8 @@ database_url = os.getenv("DATABASE_URL")
 if database_url:
     # Use Postgres on Vercel if DATABASE_URL is set
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-elif os.getenv("VERCEL"):
-    # On Vercel without DATABASE_URL, use SQLite (works offline, no network)
+elif os.getenv("VERCEL_ENV") or os.getenv("VERCEL"):
+    # On Vercel (check both VERCEL_ENV auto and VERCEL manual), use SQLite (works offline)
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/financetrack.db"
 else:
     # Local development: use MySQL
