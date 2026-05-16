@@ -25,11 +25,14 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "replace-with-a-secure-key")
 # Database URL selection: Vercel env > Local MySQL > SQLite fallback
 database_url = os.getenv("DATABASE_URL")
 
+# Check if running on Vercel: VERCEL_ENV, VERCEL var, or TMPDIR env (always set in Vercel)
+is_vercel = bool(os.getenv("VERCEL_ENV") or os.getenv("VERCEL") or (os.getenv("TMPDIR") and "/tmp" in os.getenv("TMPDIR", "")))
+
 if database_url:
     # Use Postgres on Vercel if DATABASE_URL is set
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-elif os.getenv("VERCEL_ENV") or os.getenv("VERCEL"):
-    # On Vercel (check both VERCEL_ENV auto and VERCEL manual), use SQLite (works offline)
+elif is_vercel:
+    # On Vercel, use SQLite (works offline, no network required)
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/financetrack.db"
 else:
     # Local development: use MySQL
