@@ -31,9 +31,6 @@ tmpdir = os.getenv("TMPDIR")
 # Check if running on Vercel: VERCEL_ENV, VERCEL var, or TMPDIR env (always set in Vercel)
 is_vercel = bool(vercel_env or vercel_var or (tmpdir and "/tmp" in tmpdir))
 
-# Force debug info to appear in logs
-raise Exception(f"[DEBUG] DATABASE_URL={database_url is not None}, VERCEL_ENV={vercel_env}, VERCEL={vercel_var}, TMPDIR={tmpdir}, is_vercel={is_vercel}")
-
 if database_url:
     # Use Postgres on Vercel if DATABASE_URL is set
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
@@ -51,59 +48,40 @@ else:
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
-# Set a default database URL - will be overridden on first request based on environment
-# This allows the app to import without failing due to missing environment variables
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/financetrack_temp.db"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-        # Criar autenticação padrão
+email_user = os.getenv("EMAIL_USER")
+email_password = os.getenv("EMAIL_PASSWORD")
+email_smtp_host = os.getenv("EMAIL_SMTP_HOST", "smtp.gmail.com")
+email_smtp_port = int(os.getenv("EMAIL_SMTP_PORT", "465"))
+database_init_lock = Lock()
+database_initialized = False
+
+
+def get_month_period(year, month):
+    period_start = date(year, month, 1)
+    period_end = date(year, month, calendar.monthrange(year, month)[1])
+    return period_start, period_end
+
+
+def is_last_day_of_month(today=None):
+    today = today or date.today()
+    return today.day == calendar.monthrange(today.year, today.month)[1]
+
+
+def get_default_user():
+    user = User.query.first()
+    if user is None:
+        user = User(name="Usuário Demo", email="demo@financetrack.local")
+        db.session.add(user)
+        db.session.commit()
+
         auth = Autenticacao(
             usuario_id=user.id,
             email="demo@financetrack.local",
-            senha_hash=generate_password_hash("password123")
+            senha_hash=generate_password_hash("password123"),
         )
         db.session.add(auth)
         db.session.commit()
     return user
-        database_config_initialized = False
-
-        def configure_database():
-            """Configure database URL based on runtime environment - must run at request time on Vercel"""
-            global database_config_initialized
-            if database_config_initialized:
-                return
-    
-            database_url = os.getenv("DATABASE_URL")
-            vercel_env = os.getenv("VERCEL_ENV")
-            vercel_var = os.getenv("VERCEL")
-            tmpdir = os.getenv("TMPDIR")
-            is_vercel = bool(vercel_env or vercel_var or (tmpdir and "/tmp" in tmpdir))
-    
-            # Log which DB we're using
-            app.logger.warning(f"[DB_CONFIG] DATABASE_URL exists: {bool(database_url)}")
-            app.logger.warning(f"[DB_CONFIG] VERCEL_ENV: {vercel_env}")
-            app.logger.warning(f"[DB_CONFIG] VERCEL: {vercel_var}")
-            app.logger.warning(f"[DB_CONFIG] is_vercel: {is_vercel}")
-    
-            if database_url:
-                # Use Postgres on Vercel if DATABASE_URL is set
-                app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-                app.logger.warning(f"[DB_CONFIG] USING DATABASE_URL: {database_url[:50]}...")
-            elif is_vercel:
-                # On Vercel but no DATABASE_URL, use SQLite
-                app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/financetrack.db"
-                app.logger.warning("[DB_CONFIG] USING SQLite (Vercel detected, no DATABASE_URL)")
-            else:
-                # Local development: use MySQL
-                db_user = os.getenv("DB_USER", "root")
-                db_password = quote_plus(os.getenv("DB_PASSWORD", ""))
-                db_host = os.getenv("DB_HOST", "127.0.0.1")
-                db_port = os.getenv("DB_PORT", "3306")
-                db_name = os.getenv("DB_NAME", "financetrack")
-                uri = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-                app.config["SQLALCHEMY_DATABASE_URI"] = uri
-                app.logger.warning(f"[DB_CONFIG] USING MySQL local: {db_host}:{db_port}")
-    
-            database_config_initialized = True
 
 
 
@@ -183,9 +161,6 @@ def format_periodo_por_extenso(data_obj):
         12: "Dezembro",
     }
     return f"{meses[data_obj.month]} {data_obj.year}"
-
-
-        configure_database()
 
 
 class ReportPDF(FPDF):

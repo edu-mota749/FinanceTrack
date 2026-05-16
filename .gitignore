@@ -3,3 +3,5 @@ instance/
 .venv/
 .env
 *.pyc
+.vercel
+.env*.local
