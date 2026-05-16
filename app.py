@@ -22,14 +22,19 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "replace-with-a-secure-key")
 
-db_user = os.getenv("DB_USER", "root")
-db_password = quote_plus(os.getenv("DB_PASSWORD", ""))
-db_host = os.getenv("DB_HOST", "127.0.0.1")
-db_port = os.getenv("DB_PORT", "3306")
-db_name = os.getenv("DB_NAME", "financetrack")
-app.config[
-    "SQLALCHEMY_DATABASE_URI"
-] = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+database_url = os.getenv("DATABASE_URL")
+if not database_url:
+    db_user = os.getenv("DB_USER", "root")
+    db_password = quote_plus(os.getenv("DB_PASSWORD", ""))
+    db_host = os.getenv("DB_HOST", "127.0.0.1")
+    db_port = os.getenv("DB_PORT", "3306")
+    db_name = os.getenv("DB_NAME", "financetrack")
+    if os.getenv("VERCEL"):
+        database_url = "sqlite:////tmp/financetrack.db"
+    else:
+        database_url = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
